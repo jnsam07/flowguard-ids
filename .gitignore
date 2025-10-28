@@ -1,0 +1,16 @@
+# virtual env
+.venv/
+
+# python cache
+__pycache__/
+
+# big data
+data/raw/
+data/interim/
+data/processed/*.csv
+
+# saved models
+models/
+
+# mac system stuff
+.DS_Store

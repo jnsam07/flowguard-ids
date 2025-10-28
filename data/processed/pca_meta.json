@@ -1,0 +1,10 @@
+{
+  "n_components": 35,
+  "batch_size": 1000,
+  "explained_variance_ratio_sum": 0.992277232544542,
+  "source": "/Users/jsh/Library/Mobile Documents/com~apple~CloudDocs/ZOLZAK/flowguard-ids/data/interim/cicids_clean.csv",
+  "output_csv": "/Users/jsh/Library/Mobile Documents/com~apple~CloudDocs/ZOLZAK/flowguard-ids/data/processed/cicids_pca.csv",
+  "rows": 2522362,
+  "cols_before": 70,
+  "cols_after": 35
+}

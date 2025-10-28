@@ -1,0 +1,51 @@
+(.venv) jsh@jeonseunghoui-noteubug flowguard-ids % python src/train_baselines.py        
+[INFO] load -> /Users/jsh/Library/Mobile Documents/com~apple~CloudDocs/ZOLZAK/flowguard-ids/data/processed/train.csv
+[INFO] load -> /Users/jsh/Library/Mobile Documents/com~apple~CloudDocs/ZOLZAK/flowguard-ids/data/processed/test.csv
+
+=== Binary: BENIGN vs ATTACK ===
+[INFO] Train size (LR): 120,000
+/Users/jsh/Library/Mobile Documents/com~apple~CloudDocs/ZOLZAK/flowguard-ids/.venv/lib/python3.9/site-packages/sklearn/linear_model/_sag.py:348: ConvergenceWarning: The max_iter was reached which means the coef_ did not converge
+  warnings.warn(
+[LR] acc : 0.9379  (fit+predict 61.12s)
+[LR] report
+               precision    recall  f1-score   support
+
+      BENIGN     0.9511    0.9754    0.9631    524121
+      ATTACK     0.8617    0.7533    0.8039    106470
+
+    accuracy                         0.9379    630591
+   macro avg     0.9064    0.8644    0.8835    630591
+weighted avg     0.9361    0.9379    0.9363    630591
+
+[INFO] Train size (SVM): 60,000
+[SVM] acc: 0.9623  (fit+predict 316.03s)
+[SVM] report
+               precision    recall  f1-score   support
+
+      BENIGN     0.9753    0.9795    0.9774    524121
+      ATTACK     0.8967    0.8779    0.8872    106470
+
+    accuracy                         0.9623    630591
+   macro avg     0.9360    0.9287    0.9323    630591
+weighted avg     0.9620    0.9623    0.9621    630591
+
+
+=== Multiclass: Attack Type ===
+[INFO] Train size (RF): 120,000
+[RF ] acc : 0.9970  (fit+predict 23.27s)
+[RF ] report
+               precision    recall  f1-score   support
+
+      BENIGN     0.9977    0.9988    0.9983    524121
+         Bot     0.7470    0.5082    0.6049       488
+ Brute Force     0.9977    0.9620    0.9795      2288
+        DDoS     0.9991    0.9962    0.9976     32004
+         DoS     0.9956    0.9891    0.9923     48437
+  Heartbleed     1.0000    0.6667    0.8000         3
+Infiltration     1.0000    0.2222    0.3636         9
+   Port Scan     0.9841    0.9887    0.9864     22705
+  Web Attack     0.9642    0.9049    0.9336       536
+
+    accuracy                         0.9970    630591
+   macro avg     0.9650    0.8041    0.8507    630591
+weighted avg     0.9969    0.9970    0.9969    630591
