@@ -11,11 +11,16 @@ from sklearn.metrics import accuracy_score, classification_report
 from sklearn.linear_model import LogisticRegression
 from sklearn.svm import SVC
 from sklearn.ensemble import RandomForestClassifier
+from joblib import dump
+import json
 
 
 BASE = Path(__file__).resolve().parents[1]
 TRAIN = BASE / "data" / "processed" / "train.csv"
 TEST  = BASE / "data" / "processed" / "test.csv"
+
+MODEL_DIR = BASE / "models"
+MODEL_DIR.mkdir(exist_ok=True)
 
 
 def load_xy(path: Path):
@@ -50,6 +55,7 @@ def main():
     Xtr, ytr_mc, ytr_bin = load_xy(TRAIN)
     print(f"[INFO] load -> {TEST}")
     Xte, yte_mc, yte_bin = load_xy(TEST)
+    print(f"[INFO] models will be saved under -> {MODEL_DIR}")
 
     # ===== 이진분류: LR / SVM =====
     if args.mode in ("both", "binary"):
@@ -66,6 +72,11 @@ def main():
         elapsed = time.perf_counter() - t0
 
         print(f"[LR] acc : {lr_acc:.4f}  (fit+predict {elapsed:.2f}s)")
+        # --- save LR model (binary) ---
+        lr_path = MODEL_DIR / "lr_bin.joblib"
+        dump(lr, lr_path)
+        dump({"type": "binary", "algo": "LogisticRegression", "acc": float(lr_acc)}, MODEL_DIR / "lr_bin.meta.joblib")
+        print(f"[SAVE] LR (binary) -> {lr_path}")
         if args.cv and args.cv > 1:
             tcv = time.perf_counter()
             lr_cv = cross_val_score(lr, Xtr_lr, ytr_lr, cv=args.cv, n_jobs=-1).mean()
@@ -84,6 +95,11 @@ def main():
         elapsed = time.perf_counter() - t0
 
         print(f"[SVM] acc: {svm_acc:.4f}  (fit+predict {elapsed:.2f}s)")
+        # --- save SVM model (binary) ---
+        svm_path = MODEL_DIR / "svm_bin.joblib"
+        dump(svm, svm_path)
+        dump({"type": "binary", "algo": "SVC(rbf)", "acc": float(svm_acc)}, MODEL_DIR / "svm_bin.meta.joblib")
+        print(f"[SAVE] SVM (binary) -> {svm_path}")
         if args.cv and args.cv > 1:
             tcv = time.perf_counter()
             svm_cv = cross_val_score(svm, Xtr_svm, ytr_svm, cv=args.cv, n_jobs=-1).mean()
@@ -107,6 +123,11 @@ def main():
         elapsed = time.perf_counter() - t0
 
         print(f"[RF ] acc : {rf_acc:.4f}  (fit+predict {elapsed:.2f}s)")
+        # --- save RF model (multiclass) ---
+        rf_path = MODEL_DIR / "rf_multi.joblib"
+        dump(rf, rf_path)
+        dump({"type": "multiclass", "algo": "RandomForestClassifier", "acc": float(rf_acc)}, MODEL_DIR / "rf_multi.meta.joblib")
+        print(f"[SAVE] RF (multiclass) -> {rf_path}")
         if args.cv and args.cv > 1:
             tcv = time.perf_counter()
             rf_cv = cross_val_score(rf, Xtr_rf, ytr_rf, cv=args.cv, n_jobs=-1).mean()
