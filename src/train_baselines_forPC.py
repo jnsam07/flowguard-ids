@@ -14,6 +14,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.neighbors import KNeighborsClassifier
 from joblib import dump
+from threadpoolctl import threadpool_limits
 
 
 BASE = Path(__file__).resolve().parents[1]
@@ -51,11 +52,13 @@ def main():
     ap = argparse.ArgumentParser(description="Desktop-grade baselines on PCA CICIDS dataset.")
     ap.add_argument("--cv", type=int, default=0, help="k-fold cross validation (0이면 미실행)")
     ap.add_argument("--seed", type=int, default=42)
-    ap.add_argument("--limit", type=int, default=0, help="Logistic / RF 공통 학습 샘플 상한 (0이면 전체 사용)")
-    ap.add_argument("--svm-limit", type=int, default=200_000, help="SVM 학습 샘플 상한 (0이면 전체)")
-    ap.add_argument("--dt-limit", type=int, default=150_000)
-    ap.add_argument("--knn-limit", type=int, default=150_000)
+    ap.add_argument("--limit", type=int, default=250_000, help="Logistic / RF 공통 학습 샘플 상한 (0이면 전체 사용)")
+    ap.add_argument("--svm-limit", type=int, default=120_000, help="SVM 학습 샘플 상한 (0이면 전체)")
+    ap.add_argument("--dt-limit", type=int, default=120_000)
+    ap.add_argument("--knn-limit", type=int, default=80_000)
     ap.add_argument("--mode", choices=["both", "binary", "multi"], default="both")
+    ap.add_argument("--n-jobs", type=int, default=-1, help="병렬 처리에 사용할 스레드 개수 (기본 -1: 모든 코어)")
+    ap.add_argument("--omp-threads", type=int, default=0, help="라이브러리 내부 OMP 스레드 개수 (0이면 자동)")
     args = ap.parse_args()
 
     print(f"[INFO] loading train/test from {DATA_DIR}")
@@ -67,6 +70,8 @@ def main():
     limit_dt = None if args.dt_limit <= 0 else args.dt_limit
     limit_knn = None if args.knn_limit <= 0 else args.knn_limit
 
+    omp_threads = args.omp_threads if args.omp_threads > 0 else None
+
     if args.mode in ("both", "binary"):
         print("\n=== Binary classification (BENIGN vs ATTACK) ===")
 
@@ -75,15 +80,16 @@ def main():
         print(f"[LR ] train size: {len(y_lr):,}")
         t0 = time.perf_counter()
         lr = LogisticRegression(
-            max_iter=5000,
+            max_iter=3000,
             solver="saga",
             penalty="l2",
             C=1.0,
-            n_jobs=-1,
+            n_jobs=args.n_jobs,
             class_weight="balanced",
             random_state=args.seed,
         )
-        lr.fit(X_lr, y_lr)
+        with threadpool_limits(limits=omp_threads):
+            lr.fit(X_lr, y_lr)
         lr_pred = lr.predict(Xte)
         lr_acc = accuracy_score(yte_bin, lr_pred)
         print(f"[LR ] acc={lr_acc:.4f}  elapsed={time.perf_counter() - t0:.2f}s")
@@ -97,21 +103,23 @@ def main():
         print("[LR ] report\n", classification_report(yte_bin, lr_pred, target_names=["BENIGN", "ATTACK"], digits=4))
         if args.cv and args.cv > 1:
             tcv = time.perf_counter()
-            lr_cv = cross_val_score(
-                LogisticRegression(
-                    max_iter=5000,
-                    solver="saga",
-                    penalty="l2",
-                    C=1.0,
-                    n_jobs=-1,
-                    class_weight="balanced",
-                    random_state=args.seed,
-                ),
-                X_lr,
-                y_lr,
-                cv=args.cv,
-                n_jobs=-1,
-            ).mean()
+            base_lr = LogisticRegression(
+                max_iter=3000,
+                solver="saga",
+                penalty="l2",
+                C=1.0,
+                n_jobs=args.n_jobs,
+                class_weight="balanced",
+                random_state=args.seed,
+            )
+            with threadpool_limits(limits=omp_threads):
+                lr_cv = cross_val_score(
+                    base_lr,
+                    X_lr,
+                    y_lr,
+                    cv=args.cv,
+                    n_jobs=args.n_jobs,
+                ).mean()
             print(f"[LR ] cv{args.cv}={lr_cv:.4f}  elapsed={time.perf_counter() - tcv:.2f}s")
 
         # Support Vector Machine (RBF kernel)
@@ -126,7 +134,8 @@ def main():
             class_weight="balanced",
             random_state=args.seed,
         )
-        svm.fit(X_svm, y_svm)
+        with threadpool_limits(limits=omp_threads):
+            svm.fit(X_svm, y_svm)
         svm_pred = svm.predict(Xte)
         svm_acc = accuracy_score(yte_bin, svm_pred)
         print(f"[SVM] acc={svm_acc:.4f}  elapsed={time.perf_counter() - t0:.2f}s")
@@ -140,20 +149,22 @@ def main():
         print("[SVM] report\n", classification_report(yte_bin, svm_pred, target_names=["BENIGN", "ATTACK"], digits=4))
         if args.cv and args.cv > 1:
             tcv = time.perf_counter()
-            svm_cv = cross_val_score(
-                SVC(
-                    kernel="rbf",
-                    C=2.0,
-                    gamma="scale",
-                    probability=True,
-                    class_weight="balanced",
-                    random_state=args.seed,
-                ),
-                X_svm,
-                y_svm,
-                cv=args.cv,
-                n_jobs=-1,
-            ).mean()
+            base_svm = SVC(
+                kernel="rbf",
+                C=2.0,
+                gamma="scale",
+                probability=True,
+                class_weight="balanced",
+                random_state=args.seed,
+            )
+            with threadpool_limits(limits=omp_threads):
+                svm_cv = cross_val_score(
+                    base_svm,
+                    X_svm,
+                    y_svm,
+                    cv=args.cv,
+                    n_jobs=args.n_jobs,
+                ).mean()
             print(f"[SVM] cv{args.cv}={svm_cv:.4f}  elapsed={time.perf_counter() - tcv:.2f}s")
 
     if args.mode in ("both", "multi"):
@@ -168,10 +179,11 @@ def main():
             max_depth=None,
             min_samples_leaf=2,
             max_features="sqrt",
-            n_jobs=-1,
+            n_jobs=args.n_jobs,
             random_state=args.seed,
         )
-        rf.fit(X_rf, y_rf)
+        with threadpool_limits(limits=omp_threads):
+            rf.fit(X_rf, y_rf)
         rf_pred = rf.predict(Xte)
         rf_acc = accuracy_score(yte_mc, rf_pred)
         print(f"[RF ] acc={rf_acc:.4f}  elapsed={time.perf_counter() - t0:.2f}s")
@@ -185,7 +197,8 @@ def main():
         print("[RF ] report\n", classification_report(yte_mc, rf_pred, digits=4))
         if args.cv and args.cv > 1:
             tcv = time.perf_counter()
-            rf_cv = cross_val_score(rf, X_rf, y_rf, cv=args.cv, n_jobs=-1).mean()
+            with threadpool_limits(limits=omp_threads):
+                rf_cv = cross_val_score(rf, X_rf, y_rf, cv=args.cv, n_jobs=args.n_jobs).mean()
             print(f"[RF ] cv{args.cv}={rf_cv:.4f}  elapsed={time.perf_counter() - tcv:.2f}s")
 
         # Decision Tree
@@ -197,7 +210,8 @@ def main():
             min_samples_split=4,
             random_state=args.seed,
         )
-        dt.fit(X_dt, y_dt)
+        with threadpool_limits(limits=omp_threads):
+            dt.fit(X_dt, y_dt)
         dt_pred = dt.predict(Xte)
         dt_acc = accuracy_score(yte_mc, dt_pred)
         print(f"[DT ] acc={dt_acc:.4f}  elapsed={time.perf_counter() - t0:.2f}s")
@@ -214,8 +228,9 @@ def main():
         X_knn, y_knn = stratified_limit(Xtr, ytr_mc, limit_knn, args.seed)
         print(f"[KNN] train size: {len(y_knn):,}")
         t0 = time.perf_counter()
-        knn = KNeighborsClassifier(n_neighbors=10, algorithm="auto", n_jobs=-1)
-        knn.fit(X_knn, y_knn)
+        knn = KNeighborsClassifier(n_neighbors=10, algorithm="auto", n_jobs=args.n_jobs)
+        with threadpool_limits(limits=omp_threads):
+            knn.fit(X_knn, y_knn)
         knn_pred = knn.predict(Xte)
         knn_acc = accuracy_score(yte_mc, knn_pred)
         print(f"[KNN] acc={knn_acc:.4f}  elapsed={time.perf_counter() - t0:.2f}s")
