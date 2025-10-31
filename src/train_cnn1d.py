@@ -70,16 +70,25 @@ def to_loader(X: np.ndarray, y: np.ndarray, batch: int, shuffle: bool, target_dt
 # -----------------------------
 
 class TinyCNN1D(nn.Module):
-    def __init__(self, in_len: int, num_classes: int, binary: bool = False, p_drop: float = 0.1):
+    def __init__(
+        self,
+        in_len: int,
+        num_classes: int,
+        binary: bool = False,
+        p_drop: float = 0.1,
+        channels: tuple[int, int] | None = None,
+    ):
         super().__init__()
         self.binary = binary
-        self.conv1 = nn.Conv1d(1, 32, kernel_size=3, padding=1)
-        self.bn1   = nn.BatchNorm1d(32)
-        self.conv2 = nn.Conv1d(32, 64, kernel_size=3, padding=1)
-        self.bn2   = nn.BatchNorm1d(64)
+        c1, c2 = channels if channels is not None else (32, 64)
+        self.hidden_channels = (int(c1), int(c2))
+        self.conv1 = nn.Conv1d(1, self.hidden_channels[0], kernel_size=3, padding=1)
+        self.bn1   = nn.BatchNorm1d(self.hidden_channels[0])
+        self.conv2 = nn.Conv1d(self.hidden_channels[0], self.hidden_channels[1], kernel_size=3, padding=1)
+        self.bn2   = nn.BatchNorm1d(self.hidden_channels[1])
         self.drop  = nn.Dropout(p_drop)
         self.gap   = nn.AdaptiveAvgPool1d(1)
-        self.fc    = nn.Linear(64, 1 if binary else num_classes)
+        self.fc    = nn.Linear(self.hidden_channels[1], 1 if binary else num_classes)
 
     def forward(self, x):  # x: [N,1,L]
         x = F.relu(self.bn1(self.conv1(x)))
@@ -221,8 +230,9 @@ def main():
         val_loader   = to_loader(X_val, y_val.astype(np.int64), batch=args.batch, shuffle=False, target_dtype=torch.long)
 
     # Model / Loss
+    cnn_channels = (32, 64)
     if args.task == "binary":
-        model = TinyCNN1D(in_len=in_len, num_classes=2, binary=True).to(device)
+        model = TinyCNN1D(in_len=in_len, num_classes=2, binary=True, channels=cnn_channels).to(device)
         # pos_weight = (#neg / #pos) for BCEWithLogitsLoss
         pos = (y_tr == 1).sum()
         neg = (y_tr == 0).sum()
@@ -230,7 +240,7 @@ def main():
         criterion = nn.BCEWithLogitsLoss(pos_weight=pw)
     else:
         n_class = len(np.unique(y_tr))
-        model = TinyCNN1D(in_len=in_len, num_classes=n_class, binary=False).to(device)
+        model = TinyCNN1D(in_len=in_len, num_classes=n_class, binary=False, channels=cnn_channels).to(device)
         criterion = nn.CrossEntropyLoss()
 
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
@@ -272,6 +282,7 @@ def main():
             torch.save({
                 "model_state": model.state_dict(),
                 "in_len": in_len,
+                "hidden_channels": list(model.hidden_channels),
             }, tmp_path)
         else:
             no_improve += 1
@@ -294,10 +305,15 @@ def main():
             "algo": "TinyCNN1D",
             "val_acc": float(best_val),
             "test_acc": float(acc),
+            "hidden_channels": list(model.hidden_channels),
             "pc_features": len(pc_cols),
             "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")
         }
-        torch.save({"model_state": model.state_dict(), "in_len": in_len}, out_path)
+        torch.save({
+            "model_state": model.state_dict(),
+            "in_len": in_len,
+            "hidden_channels": list(model.hidden_channels),
+        }, out_path)
         (MODEL_DIR / "cnn1d_bin.meta.json").write_text(json.dumps(meta, indent=2, ensure_ascii=False))
         print(f"[SAVE] {out_path}")
     else:
@@ -315,10 +331,16 @@ def main():
             "classes": le.classes_.tolist(),
             "val_acc": float(best_val),
             "test_acc": float(acc),
+            "hidden_channels": list(model.hidden_channels),
             "pc_features": len(pc_cols),
             "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")
         }
-        torch.save({"model_state": model.state_dict(), "in_len": in_len, "classes": le.classes_.tolist()}, out_path)
+        torch.save({
+            "model_state": model.state_dict(),
+            "in_len": in_len,
+            "hidden_channels": list(model.hidden_channels),
+            "classes": le.classes_.tolist()
+        }, out_path)
         (MODEL_DIR / "cnn1d_multi.meta.json").write_text(json.dumps(meta, indent=2, ensure_ascii=False))
         print(f"[SAVE] {out_path}")
 

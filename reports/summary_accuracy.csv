@@ -1,0 +1,8 @@
+task,model,accuracy
+binary,Logistic Regression,0.9371666666666667
+binary,Support Vector Machine,0.9616466666666666
+binary,CNN-1D,0.9680666666666666
+binary,MLP,0.9604866666666667
+multiclass,Random Forest,0.9970666666666667
+multiclass,Decision Trees,0.9854866666666666
+multiclass,K Nearest Neighbours,0.98288
