@@ -1,4 +1,3 @@
-
 # src/train_baselines.py
 from __future__ import annotations
 from pathlib import Path
@@ -11,6 +10,8 @@ from sklearn.metrics import accuracy_score, classification_report
 from sklearn.linear_model import LogisticRegression
 from sklearn.svm import SVC
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.neighbors import KNeighborsClassifier
 from joblib import dump
 import json
 
@@ -49,6 +50,8 @@ def main():
     ap.add_argument("--svm-limit", type=int, default=60_000, help="SVM 전용 훈련 샘플 상한")
     ap.add_argument("--mode", choices=["both", "binary", "multi"], default="both",
                     help="학습 모드 선택 (both/binary/multi)")
+    ap.add_argument("--dt-limit", type=int, default=80_000, help="Decision Tree 전용 훈련 샘플 상한")
+    ap.add_argument("--knn-limit", type=int, default=30_000, help="KNN 전용 훈련 샘플 상한 (예측이 느껴질 수 있어 작게 설정)")
     args = ap.parse_args()
 
     print(f"[INFO] load -> {TRAIN}")
@@ -133,6 +136,54 @@ def main():
             rf_cv = cross_val_score(rf, Xtr_rf, ytr_rf, cv=args.cv, n_jobs=-1).mean()
             print(f"[RF ] cv{args.cv}: {rf_cv:.4f}  ({time.perf_counter()-tcv:.2f}s)")
         print("[RF ] report\n", classification_report(yte_mc, rf_pred, digits=4))
+
+        # ----- Decision Tree (Multiclass) -----
+        print("\n[+] Decision Tree (multiclass)")
+        Xtr_dt, ytr_dt = stratified_subsample(Xtr, ytr_mc, args.dt_limit, args.seed)
+        print(f"[INFO] Train size (DT): {len(ytr_dt):,}")
+
+        t0 = time.perf_counter()
+        dt = DecisionTreeClassifier(max_depth=8, random_state=args.seed)
+        dt.fit(Xtr_dt, ytr_dt)
+        dt_pred = dt.predict(Xte)
+        dt_acc = accuracy_score(yte_mc, dt_pred)
+        elapsed = time.perf_counter() - t0
+
+        print(f"[DT ] acc : {dt_acc:.4f}  (fit+predict {elapsed:.2f}s)")
+        dt_path = MODEL_DIR / "dt_multi.joblib"
+        dump(dt, dt_path)
+        dump({"type": "multiclass", "algo": "DecisionTreeClassifier(max_depth=8)", "acc": float(dt_acc)},
+             MODEL_DIR / "dt_multi.meta.joblib")
+        print(f"[SAVE] DT (multiclass) -> {dt_path}")
+        if args.cv and args.cv > 1:
+            tcv = time.perf_counter()
+            dt_cv = cross_val_score(dt, Xtr_dt, ytr_dt, cv=args.cv, n_jobs=-1).mean()
+            print(f"[DT ] cv{args.cv}: {dt_cv:.4f}  ({time.perf_counter()-tcv:.2f}s)")
+        print("[DT ] report\n", classification_report(yte_mc, dt_pred, digits=4))
+
+        # ----- K Nearest Neighbors (Multiclass) -----
+        print("\n[+] K Nearest Neighbors (multiclass)")
+        Xtr_knn, ytr_knn = stratified_subsample(Xtr, ytr_mc, args.knn_limit, args.seed)
+        print(f"[INFO] Train size (KNN): {len(ytr_knn):,}")
+
+        t0 = time.perf_counter()
+        knn = KNeighborsClassifier(n_neighbors=8, algorithm="auto", n_jobs=-1)
+        knn.fit(Xtr_knn, ytr_knn)
+        knn_pred = knn.predict(Xte)
+        knn_acc = accuracy_score(yte_mc, knn_pred)
+        elapsed = time.perf_counter() - t0
+
+        print(f"[KNN] acc: {knn_acc:.4f}  (fit+predict {elapsed:.2f}s)")
+        knn_path = MODEL_DIR / "knn_multi.joblib"
+        dump(knn, knn_path)
+        dump({"type": "multiclass", "algo": "KNeighborsClassifier(n_neighbors=8)", "acc": float(knn_acc)},
+             MODEL_DIR / "knn_multi.meta.joblib")
+        print(f"[SAVE] KNN (multiclass) -> {knn_path}")
+        if args.cv and args.cv > 1:
+            tcv = time.perf_counter()
+            knn_cv = cross_val_score(knn, Xtr_knn, ytr_knn, cv=args.cv, n_jobs=-1).mean()
+            print(f"[KNN] cv{args.cv}: {knn_cv:.4f}  ({time.perf_counter()-tcv:.2f}s)")
+        print("[KNN] report\n", classification_report(yte_mc, knn_pred, digits=4))
 
 
 if __name__ == "__main__":
