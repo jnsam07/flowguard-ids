@@ -56,7 +56,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for better mobile sidebar visibility and guide
+# Custom CSS for better mobile sidebar visibility
 st.markdown("""
 <style>
     /* Mobile sidebar toggle button enhancement */
@@ -72,37 +72,6 @@ st.markdown("""
     [data-testid="collapsedControl"]:hover {
         box-shadow: 0 6px 16px rgba(102, 126, 234, 0.7) !important;
         transform: scale(1.1);
-    }
-    
-    /* Guide box styling */
-    .guide-box {
-        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-        padding: 20px;
-        border-radius: 10px;
-        border-left: 5px solid #667eea;
-        margin-bottom: 20px;
-    }
-    
-    .guide-step {
-        background: white;
-        padding: 15px;
-        margin: 10px 0;
-        border-radius: 8px;
-        border-left: 4px solid #764ba2;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-    
-    .guide-step h4 {
-        color: #667eea;
-        margin: 0 0 10px 0;
-    }
-    
-    .tip-box {
-        background: #fff3cd;
-        border-left: 4px solid #ffc107;
-        padding: 12px;
-        border-radius: 5px;
-        margin: 10px 0;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -367,94 +336,76 @@ def create_share_buttons(share_text: str):
 
 
 def main():
+    # Mobile user notice (outside sidebar)
+    st.info("📱 **모바일 사용자 안내:** 화면 왼쪽 상단의 **보라색 동그란 버튼 (>>)** 을 눌러 설정 메뉴를 열고 닫을 수 있습니다!")
+    
     st.title("🛡️ FlowGuard IDS – AI-Powered Network Security")
     
     # Detailed User Guide
     with st.expander("📖 사용 가이드 (처음 사용하시나요? 여기를 클릭하세요!)", expanded=False):
-        st.markdown("""
-        <div class="guide-box">
-            <h3 style="color: #667eea; margin-top: 0;">🎯 FlowGuard IDS 사용 방법</h3>
-            
-            <div class="guide-step">
-                <h4>1️⃣ 모델 선택 (왼쪽 사이드바)</h4>
-                <p><strong>📱 모바일 사용자:</strong> 화면 왼쪽 상단의 <strong>보라색 동그란 버튼 (>>)</strong>을 눌러 사이드바를 여세요!</p>
-                <ul>
-                    <li><strong>Stage 1 모델:</strong> 정상/공격 트래픽을 구분하는 딥러닝 모델을 선택
-                        <ul>
-                            <li><strong>MLP:</strong> 빠르고 가벼운 신경망 (기본 권장)</li>
-                            <li><strong>CNN-1D:</strong> 더 정확하지만 느린 합성곱 신경망</li>
-                        </ul>
-                    </li>
-                    <li><strong>Stage 2 모델:</strong> 공격 유형을 세부 분류하는 머신러닝 모델을 선택
-                        <ul>
-                            <li><strong>Random Forest:</strong> 가장 정확한 모델 (기본 권장, 9개 공격 유형)</li>
-                            <li><strong>Decision Tree:</strong> 빠른 예측 (8개 공격 유형)</li>
-                            <li><strong>K-NN:</strong> 간단한 모델 (7개 공격 유형)</li>
-                        </ul>
-                    </li>
-                </ul>
-            </div>
-            
-            <div class="guide-step">
-                <h4>2️⃣ 데이터 준비</h4>
-                <p><strong>두 가지 방법 중 선택:</strong></p>
-                <ul>
-                    <li><strong>테스트 데이터 샘플:</strong> 기본 제공되는 샘플 데이터 사용 (빠른 테스트용)</li>
-                    <li><strong>CSV 업로드:</strong> 직접 준비한 네트워크 트래픽 데이터 업로드
-                        <ul>
-                            <li>필수 컬럼: PC1, PC2, ..., PC35 (PCA 처리된 특성)</li>
-                            <li>선택 컬럼: Attack Type (실제 공격 유형)</li>
-                        </ul>
-                    </li>
-                </ul>
-                <p><strong>샘플 개수:</strong> 슬라이더로 분석할 데이터 양 조절 (1~200개)</p>
-            </div>
-            
-            <div class="guide-step">
-                <h4>3️⃣ 분석 실행</h4>
-                <p><strong>"🚀 분석 실행"</strong> 버튼을 클릭하세요!</p>
-                <ul>
-                    <li>Stage 1: 먼저 정상/공격 트래픽 구분</li>
-                    <li>Stage 2: 공격으로 분류된 트래픽의 공격 유형 세부 분석</li>
-                    <li>분석 시간: 샘플 개수에 따라 수 초~수십 초 소요</li>
-                </ul>
-            </div>
-            
-            <div class="guide-step">
-                <h4>4️⃣ 결과 확인</h4>
-                <p>분석 완료 후 다음 정보를 확인할 수 있습니다:</p>
-                <ul>
-                    <li><strong>📊 요약 통계:</strong> 전체 트래픽, 정상 트래픽, 공격 트래픽 수</li>
-                    <li><strong>🎯 상세 결과 테이블:</strong> 각 트래픽의 예측 결과 (색상 코딩)
-                        <ul>
-                            <li>🟢 초록색: 정상 트래픽 (BENIGN)</li>
-                            <li>🔴 빨간색: 공격 트래픽</li>
-                        </ul>
-                    </li>
-                    <li><strong>📈 공격 유형 분포:</strong> 탐지된 공격의 종류별 개수 차트</li>
-                </ul>
-            </div>
-            
-            <div class="guide-step">
-                <h4>5️⃣ 결과 공유 및 저장</h4>
-                <ul>
-                    <li><strong>SNS 공유:</strong> Twitter, Facebook, LinkedIn 버튼 클릭</li>
-                    <li><strong>📋 복사:</strong> 복사 버튼 클릭 후 나타나는 텍스트를 복사</li>
-                    <li><strong>💾 CSV 다운로드:</strong> 상세 결과를 CSV 파일로 저장</li>
-                </ul>
-            </div>
-            
-            <div class="tip-box">
-                <strong>💡 팁:</strong>
-                <ul style="margin: 5px 0 0 0;">
-                    <li>처음 사용하시면 <strong>MLP + Random Forest</strong> 조합을 추천합니다!</li>
-                    <li>샘플 개수는 <strong>50개</strong>로 시작해보세요 (빠른 분석)</li>
-                    <li>모바일에서는 가로 모드로 보시면 더 편합니다!</li>
-                    <li>궁금한 점은 각 옵션 옆의 <strong>❓</strong> 아이콘을 클릭하세요</li>
-                </ul>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown("### 🎯 FlowGuard IDS 사용 방법")
+        
+        # Step 1: Model Selection
+        st.markdown("#### 1️⃣ 모델 선택 (왼쪽 사이드바)")
+        st.info("""
+**Stage 1 모델:** 정상/공격 트래픽을 구분하는 딥러닝 모델을 선택
+- **MLP:** 빠르고 가벼운 신경망 (기본 권장)
+- **CNN-1D:** 더 정확하지만 느린 합성곱 신경망
+
+**Stage 2 모델:** 공격 유형을 세부 분류하는 머신러닝 모델을 선택
+- **Random Forest:** 가장 정확한 모델 (기본 권장, 9개 공격 유형)
+- **Decision Tree:** 빠른 예측 (8개 공격 유형)
+- **K-NN:** 간단한 모델 (7개 공격 유형)
+        """)
+        
+        # Step 2: Data Preparation
+        st.markdown("#### 2️⃣ 데이터 준비")
+        st.info("""
+**두 가지 방법 중 선택:**
+- **테스트 데이터 샘플:** 기본 제공되는 샘플 데이터 사용 (빠른 테스트용)
+- **CSV 업로드:** 직접 준비한 네트워크 트래픽 데이터 업로드
+  - 필수 컬럼: PC1, PC2, ..., PC35 (PCA 처리된 특성)
+  - 선택 컬럼: Attack Type (실제 공격 유형)
+
+**샘플 개수:** 슬라이더로 분석할 데이터 양 조절 (1~200개)
+        """)
+        
+        # Step 3: Run Analysis
+        st.markdown("#### 3️⃣ 분석 실행")
+        st.info("""
+**"🚀 분석 실행"** 버튼을 클릭하세요!
+- Stage 1: 먼저 정상/공격 트래픽 구분
+- Stage 2: 공격으로 분류된 트래픽의 공격 유형 세부 분석
+- 분석 시간: 샘플 개수에 따라 수 초~수십 초 소요
+        """)
+        
+        # Step 4: View Results
+        st.markdown("#### 4️⃣ 결과 확인")
+        st.info("""
+분석 완료 후 다음 정보를 확인할 수 있습니다:
+- **📊 요약 통계:** 전체 트래픽, 정상 트래픽, 공격 트래픽 수
+- **🎯 상세 결과 테이블:** 각 트래픽의 예측 결과 (색상 코딩)
+  - 🟢 초록색: 정상 트래픽 (BENIGN)
+  - 🔴 빨간색: 공격 트래픽
+- **📈 공격 유형 분포:** 탐지된 공격의 종류별 개수 차트
+        """)
+        
+        # Step 5: Share & Save
+        st.markdown("#### 5️⃣ 결과 공유 및 저장")
+        st.info("""
+- **SNS 공유:** Twitter, Facebook, LinkedIn 버튼 클릭
+- **📋 복사:** 복사 버튼 클릭 후 나타나는 텍스트를 복사
+- **💾 CSV 다운로드:** 상세 결과를 CSV 파일로 저장
+        """)
+        
+        # Tips
+        st.success("""
+**💡 팁:**
+- 처음 사용하시면 **MLP + Random Forest** 조합을 추천합니다!
+- 샘플 개수는 **50개**로 시작해보세요 (빠른 분석)
+- 모바일에서는 가로 모드로 보시면 더 편합니다!
+- 궁금한 점은 각 옵션 옆의 **❓** 아이콘을 클릭하세요
+        """)
     
     st.markdown(
         """
@@ -471,16 +422,6 @@ def main():
     )
 
     with st.sidebar:
-        # Mobile user notice
-        st.markdown("""
-        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                    padding: 15px; border-radius: 10px; color: white; margin-bottom: 15px; text-align: center;">
-            <strong>📱 모바일 사용자 안내</strong><br>
-            <small>화면 왼쪽 상단의 <strong style="font-size: 1.2em;">보라색 동그란 버튼 (>>)</strong>을<br>
-            눌러 이 메뉴를 열고 닫을 수 있습니다!</small>
-        </div>
-        """, unsafe_allow_html=True)
-        
         st.markdown("### 🤖 모델 선택")
         st.info("💡 처음이시라면 기본 설정(MLP + Random Forest)을 추천합니다!")
         
