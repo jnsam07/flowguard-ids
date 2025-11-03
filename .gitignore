@@ -9,8 +9,15 @@ data/raw/
 data/interim/
 data/processed/*.csv
 
-# saved models
-models/
+# saved models - use Git LFS for large files
+# models/
 
 # mac system stuff
 .DS_Store
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Logs
+*.log
+logs/

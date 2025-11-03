@@ -1,0 +1,110 @@
+(.venv) PS E:\iCloud\iCloud Drive\iCloudDrive\ZOLZAK\flowguard-ids_forPC\flowguard-ids> & "E:/iCloud/iCloud Drive/iCloudDrive/ZOLZAK/flowguard-ids_forPC/flowguard-ids/.venv/Scripts/python.exe" "e:/iCloud/iCloud Drive/iCloudDrive/ZOLZAK/flowguard-ids_forPC/flowguard-ids/src/train_cnn1d_forPC.py"
+[INFO] device: cuda
+[INFO] PCs: 35  train=1,891,771  test=630,591
+[INFO] Binary task - pos_weight: 7.38 (pos=271,497, neg=1,336,508)
+[INFO] Training final model on full training set...
+  → Running CV on test.csv at epoch 1...
+  → Test CV Acc: 0.9766 (±0.0004)
+[EP 01/50] loss=0.2408 | acc=0.9765 prec=0.9374 rec=0.9227 f1=0.9300 | lr=0.000045 | thr=0.903
+  ✓ New best F1-Score: 0.9300
+[EP 02/50] loss=0.1392 | acc=0.9779 prec=0.9314 rec=0.9379 f1=0.9347 | lr=0.000073 | thr=0.540
+  ✓ New best F1-Score: 0.9347
+[EP 03/50] loss=0.1230 | acc=0.9804 prec=0.9456 rec=0.9381 f1=0.9418 | lr=0.000119 | thr=0.820
+  ✓ New best F1-Score: 0.9418
+[EP 04/50] loss=0.1152 | acc=0.9804 prec=0.9453 rec=0.9384 f1=0.9419 | lr=0.000179 | thr=0.790
+  ✓ New best F1-Score: 0.9419
+  → Running CV on test.csv at epoch 5...
+  → Test CV Acc: 0.9800 (±0.0002)
+[EP 05/50] loss=0.1101 | acc=0.9802 prec=0.9516 rec=0.9298 f1=0.9405 | lr=0.000252 | thr=0.760
+[EP 06/50] loss=0.1080 | acc=0.9669 prec=0.9069 rec=0.8962 f1=0.9015 | lr=0.000335 | thr=0.015
+[EP 07/50] loss=0.1047 | acc=0.9827 prec=0.9588 rec=0.9377 f1=0.9482 | lr=0.000423 | thr=0.891
+  ✓ New best F1-Score: 0.9482
+[EP 08/50] loss=0.1034 | acc=0.9657 prec=0.8848 rec=0.9161 f1=0.9002 | lr=0.000513 | thr=0.154
+[EP 09/50] loss=0.1013 | acc=0.9761 prec=0.9330 rec=0.9250 f1=0.9289 | lr=0.000602 | thr=0.550
+  → Running CV on test.csv at epoch 10...
+  → Test CV Acc: 0.9836 (±0.0004)
+[EP 10/50] loss=0.0996 | acc=0.9834 prec=0.9754 rec=0.9250 f1=0.9496 | lr=0.000684 | thr=0.889
+  ✓ New best F1-Score: 0.9496
+[EP 11/50] loss=0.0991 | acc=0.9825 prec=0.9576 rec=0.9382 f1=0.9478 | lr=0.000757 | thr=0.913
+[EP 12/50] loss=0.0960 | acc=0.9833 prec=0.9504 rec=0.9504 f1=0.9504 | lr=0.000818 | thr=0.860
+  ✓ New best F1-Score: 0.9504
+[EP 13/50] loss=0.0945 | acc=0.9836 prec=0.9526 rec=0.9501 f1=0.9514 | lr=0.000863 | thr=0.826
+  ✓ New best F1-Score: 0.9514
+[EP 14/50] loss=0.0938 | acc=0.9833 prec=0.9289 rec=0.9755 f1=0.9517 | lr=0.000891 | thr=0.824
+  ✓ New best F1-Score: 0.9517
+  → Running CV on test.csv at epoch 15...
+  → Test CV Acc: 0.9828 (±0.0005)
+[EP 15/50] loss=0.0924 | acc=0.9829 prec=0.9542 rec=0.9443 f1=0.9492 | lr=0.000900 | thr=0.882
+[EP 16/50] loss=0.0908 | acc=0.9850 prec=0.9473 rec=0.9649 f1=0.9560 | lr=0.000898 | thr=0.859
+  ✓ New best F1-Score: 0.9560
+[EP 17/50] loss=0.0887 | acc=0.9848 prec=0.9435 rec=0.9679 f1=0.9556 | lr=0.000893 | thr=0.835
+[EP 18/50] loss=0.0878 | acc=0.9849 prec=0.9448 rec=0.9671 f1=0.9558 | lr=0.000884 | thr=0.838
+[EP 19/50] loss=0.0858 | acc=0.9850 prec=0.9473 rec=0.9646 f1=0.9559 | lr=0.000871 | thr=0.852
+  → Running CV on test.csv at epoch 20...
+  → Test CV Acc: 0.9856 (±0.0002)
+[EP 20/50] loss=0.0850 | acc=0.9858 prec=0.9563 rec=0.9598 f1=0.9580 | lr=0.000855 | thr=0.897
+  ✓ New best F1-Score: 0.9580
+[EP 21/50] loss=0.0844 | acc=0.9835 prec=0.9804 rec=0.9209 f1=0.9497 | lr=0.000836 | thr=0.919
+[EP 22/50] loss=0.0814 | acc=0.9866 prec=0.9632 rec=0.9575 f1=0.9603 | lr=0.000814 | thr=0.896
+  ✓ New best F1-Score: 0.9603
+[EP 23/50] loss=0.0798 | acc=0.9861 prec=0.9573 rec=0.9606 f1=0.9589 | lr=0.000789 | thr=0.872
+[EP 24/50] loss=0.0782 | acc=0.9710 prec=0.9232 rec=0.9032 f1=0.9131 | lr=0.000761 | thr=0.286
+  → Running CV on test.csv at epoch 25...
+  → Test CV Acc: 0.9848 (±0.0004)
+[EP 25/50] loss=0.0774 | acc=0.9849 prec=0.9555 rec=0.9550 f1=0.9552 | lr=0.000731 | thr=0.907
+[EP 26/50] loss=0.0760 | acc=0.9864 prec=0.9717 rec=0.9469 f1=0.9591 | lr=0.000698 | thr=0.926
+[EP 27/50] loss=0.0750 | acc=0.9860 prec=0.9616 rec=0.9554 f1=0.9585 | lr=0.000663 | thr=0.912
+[EP 28/50] loss=0.0739 | acc=0.9839 prec=0.9606 rec=0.9434 f1=0.9519 | lr=0.000627 | thr=0.872
+[EP 29/50] loss=0.0721 | acc=0.9843 prec=0.9366 rec=0.9725 f1=0.9542 | lr=0.000589 | thr=0.745
+  → Running CV on test.csv at epoch 30...
+  → Test CV Acc: 0.9249 (±0.0006)
+[EP 30/50] loss=0.0716 | acc=0.9243 prec=0.9616 rec=0.5744 f1=0.7192 | lr=0.000550 | thr=0.001
+[EP 31/50] loss=0.0701 | acc=0.9880 prec=0.9683 rec=0.9604 f1=0.9644 | lr=0.000510 | thr=0.889
+  ✓ New best F1-Score: 0.9644
+[EP 32/50] loss=0.0694 | acc=0.9852 prec=0.9652 rec=0.9463 f1=0.9556 | lr=0.000470 | thr=0.909
+[EP 33/50] loss=0.0686 | acc=0.9864 prec=0.9651 rec=0.9540 f1=0.9595 | lr=0.000430 | thr=0.868
+[EP 34/50] loss=0.0678 | acc=0.9824 prec=0.9421 rec=0.9546 f1=0.9483 | lr=0.000390 | thr=0.736
+  → Running CV on test.csv at epoch 35...
+  → Test CV Acc: 0.9880 (±0.0002)
+[EP 35/50] loss=0.0668 | acc=0.9883 prec=0.9658 rec=0.9651 f1=0.9655 | lr=0.000350 | thr=0.859
+  ✓ New best F1-Score: 0.9655
+[EP 36/50] loss=0.0662 | acc=0.9843 prec=0.9654 rec=0.9405 f1=0.9528 | lr=0.000311 | thr=0.886
+[EP 37/50] loss=0.0656 | acc=0.9870 prec=0.9585 rec=0.9650 f1=0.9617 | lr=0.000273 | thr=0.873
+[EP 38/50] loss=0.0648 | acc=0.9880 prec=0.9639 rec=0.9651 f1=0.9645 | lr=0.000237 | thr=0.878
+[EP 39/50] loss=0.0638 | acc=0.9880 prec=0.9663 rec=0.9627 f1=0.9645 | lr=0.000202 | thr=0.877
+  → Running CV on test.csv at epoch 40...
+  → Test CV Acc: 0.9870 (±0.0004)
+[EP 40/50] loss=0.0628 | acc=0.9872 prec=0.9563 rec=0.9685 f1=0.9624 | lr=0.000169 | thr=0.851
+[EP 41/50] loss=0.0622 | acc=0.9883 prec=0.9619 rec=0.9692 f1=0.9655 | lr=0.000139 | thr=0.858
+  ✓ New best F1-Score: 0.9655
+[EP 42/50] loss=0.0617 | acc=0.9762 prec=0.9630 rec=0.8931 f1=0.9267 | lr=0.000111 | thr=0.863
+[EP 43/50] loss=0.0609 | acc=0.9884 prec=0.9618 rec=0.9697 f1=0.9658 | lr=0.000086 | thr=0.859
+  ✓ New best F1-Score: 0.9658
+[EP 44/50] loss=0.0604 | acc=0.9703 prec=0.9208 rec=0.9018 f1=0.9112 | lr=0.000064 | thr=0.424
+  → Running CV on test.csv at epoch 45...
+  → Test CV Acc: 0.9882 (±0.0002)
+[EP 45/50] loss=0.0598 | acc=0.9883 prec=0.9600 rec=0.9714 f1=0.9657 | lr=0.000045 | thr=0.850
+[EP 46/50] loss=0.0596 | acc=0.9845 prec=0.9446 rec=0.9647 f1=0.9545 | lr=0.000029 | thr=0.746
+[EP 47/50] loss=0.0591 | acc=0.9883 prec=0.9584 rec=0.9731 f1=0.9657 | lr=0.000016 | thr=0.851
+[EP 48/50] loss=0.0588 | acc=0.9841 prec=0.9457 rec=0.9607 f1=0.9531 | lr=0.000007 | thr=0.761
+[EP 49/50] loss=0.0586 | acc=0.9880 prec=0.9631 rec=0.9658 f1=0.9645 | lr=0.000002 | thr=0.859
+  → Running CV on test.csv at epoch 50...
+  → Test CV Acc: 0.9884 (±0.0002)
+[EP 50/50] loss=0.0587 | acc=0.9885 prec=0.9599 rec=0.9727 f1=0.9663 | lr=0.000000 | thr=0.854
+  ✓ New best F1-Score: 0.9663
+
+[Test] Binary CNN Metrics:
+  Accuracy:  0.9884
+  Precision: 0.9603
+  Recall:    0.9715
+  F1-Score:  0.9659
+  Threshold: 0.8539
+[Report]
+              precision    recall  f1-score   support
+
+      BENIGN     0.9942    0.9918    0.9930    524121
+      ATTACK     0.9603    0.9715    0.9659    106470
+
+    accuracy                         0.9884    630591
+   macro avg     0.9773    0.9817    0.9794    630591
+weighted avg     0.9885    0.9884    0.9884    630591

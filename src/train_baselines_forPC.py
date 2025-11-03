@@ -1,13 +1,18 @@
 # src/train_baselines_forPC.py
 from __future__ import annotations
 from pathlib import Path
+import os
 import argparse
 import time
 import json
 import multiprocessing as mp
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ProcessPoolExecutor
+import warnings
+warnings.filterwarnings('ignore')
+
 
 import pandas as pd
+import numpy as np
 from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.metrics import accuracy_score, classification_report
 from sklearn.linear_model import LogisticRegression
@@ -15,8 +20,7 @@ from sklearn.svm import SVC
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.neighbors import KNeighborsClassifier
-from joblib import dump
-from threadpoolctl import threadpool_limits
+from joblib import dump, parallel_backend
 
 
 BASE = Path(__file__).resolve().parents[1]
@@ -75,28 +79,51 @@ def main():
     limit_knn = None if args.knn_limit <= 0 else args.knn_limit
 
     total_cpu = mp.cpu_count() or 1
-    parallel_workers = max(1, min(args.model_parallel, total_cpu))
+    # 라이젠 5900X (12코어 24스레드) 최대 활용 설정
+    parallel_workers = 1  # 한 번에 하나의 모델만 학습 (순차 실행)
     if args.n_jobs == -1:
-        per_model_jobs = max(1, total_cpu // parallel_workers)
+        per_model_jobs = total_cpu  # 모든 24 스레드를 단일 모델에 할당
     else:
         per_model_jobs = max(1, args.n_jobs)
-    omp_threads = args.omp_threads if args.omp_threads > 0 else None
+    # Default to all cores when not specified
+    omp_threads = args.omp_threads if args.omp_threads > 0 else total_cpu
+    
+    # 라이브러리 백엔드에 모든 스레드 사용 강제 설정
+    os.environ["OMP_NUM_THREADS"] = str(omp_threads)
+    os.environ["MKL_NUM_THREADS"] = str(omp_threads)
+    os.environ["OPENBLAS_NUM_THREADS"] = str(omp_threads)
+    os.environ["NUMEXPR_NUM_THREADS"] = str(omp_threads)
+    os.environ["VECLIB_MAXIMUM_THREADS"] = str(omp_threads)
+    os.environ["NUMBA_NUM_THREADS"] = str(omp_threads)
+    os.environ["BLIS_NUM_THREADS"] = str(omp_threads)
+    
+    # OpenMP 공격적 설정 (CPU 100% 사용을 위한 핵심 설정)
+    os.environ["OMP_DYNAMIC"] = "FALSE"  # 동적 스레드 조정 비활성화
+    os.environ["OMP_WAIT_POLICY"] = "ACTIVE"  # Busy-wait으로 CPU 점유
+    os.environ["OMP_PROC_BIND"] = "TRUE"  # 스레드를 코어에 고정
+    
+    # Intel MKL 최적화 (AMD Ryzen에서도 효과적)
+    os.environ["MKL_DYNAMIC"] = "FALSE"
+    os.environ["MKL_THREADING_LAYER"] = "GNU"  # OpenMP 사용
+    os.environ["MKL_NUM_THREADS"] = str(omp_threads)
+    
+    print(f"[INFO] CPU cores={total_cpu} (Ryzen 5900X: 12C/24T)")
+    print(f"[INFO] model_parallel={parallel_workers}  omp_threads={omp_threads}  per_model_jobs={per_model_jobs}")
+    print(f"[INFO] OMP_WAIT_POLICY=ACTIVE (CPU를 100% 점유합니다)")
 
     def run_jobs(job_funcs):
         if not job_funcs:
             return
-        if parallel_workers == 1:
-            results = [job() for job in job_funcs]
-        else:
-            with ThreadPoolExecutor(max_workers=min(parallel_workers, len(job_funcs))) as executor:
-                futures = [executor.submit(job) for job in job_funcs]
-                results = [f.result() for f in futures]
+        # 순차 실행으로 각 모델이 모든 CPU 스레드를 독점
+        results = [job() for job in job_funcs]
         for logs in results:
             for line in logs:
                 print(line)
 
     if args.mode in ("both", "binary"):
         print("\n=== Binary classification (BENIGN vs ATTACK) ===")
+        # 모든 CPU를 활용하여 학습
+        per_model_jobs = total_cpu
 
         # Logistic Regression (balanced, larger iteration budget)
         X_lr, y_lr = stratified_limit(Xtr, ytr_bin, limit_common, args.seed)
@@ -112,8 +139,10 @@ def main():
                 n_jobs=per_model_jobs,
                 class_weight="balanced",
                 random_state=args.seed,
+                verbose=1,  # 진행상황 표시
             )
-            with threadpool_limits(limits=omp_threads):
+            # loky 백엔드: GIL 우회, 진정한 병렬 처리
+            with parallel_backend("loky", n_jobs=per_model_jobs):
                 lr.fit(X_lr, y_lr)
             lr_pred = lr.predict(Xte)
             lr_acc = accuracy_score(yte_bin, lr_pred)
@@ -137,7 +166,7 @@ def main():
                     class_weight="balanced",
                     random_state=args.seed,
                 )
-                with threadpool_limits(limits=omp_threads):
+                with parallel_backend("loky", n_jobs=per_model_jobs):
                     lr_cv = cross_val_score(
                         base_lr,
                         X_lr,
@@ -161,8 +190,11 @@ def main():
                 probability=True,
                 class_weight="balanced",
                 random_state=args.seed,
+                cache_size=2000,  # 2GB 캐시
+                verbose=True,  # 진행상황 표시
             )
-            with threadpool_limits(limits=omp_threads):
+            # loky 백엔드로 멀티프로세싱
+            with parallel_backend("loky", n_jobs=per_model_jobs):
                 svm.fit(X_svm, y_svm)
             svm_pred = svm.predict(Xte)
             svm_acc = accuracy_score(yte_bin, svm_pred)
@@ -184,8 +216,9 @@ def main():
                     probability=True,
                     class_weight="balanced",
                     random_state=args.seed,
+                    cache_size=2000,
                 )
-                with threadpool_limits(limits=omp_threads):
+                with parallel_backend("loky", n_jobs=per_model_jobs):
                     svm_cv = cross_val_score(
                         base_svm,
                         X_svm,
@@ -200,6 +233,8 @@ def main():
 
     if args.mode in ("both", "multi"):
         print("\n=== Multiclass classification (Attack Type) ===")
+        # 모든 CPU를 활용하여 학습
+        per_model_jobs = total_cpu
 
         # Random Forest
         X_rf, y_rf = stratified_limit(Xtr, ytr_mc, limit_common, args.seed)
@@ -214,8 +249,11 @@ def main():
                 max_features="sqrt",
                 n_jobs=per_model_jobs,
                 random_state=args.seed,
+                verbose=2,  # 진행상황 상세 표시
+                warm_start=False,
             )
-            with threadpool_limits(limits=omp_threads):
+            # loky 백엔드로 모든 스레드 활용
+            with parallel_backend("loky", n_jobs=per_model_jobs):
                 rf.fit(X_rf, y_rf)
             rf_pred = rf.predict(Xte)
             rf_acc = accuracy_score(yte_mc, rf_pred)
@@ -230,7 +268,7 @@ def main():
             logs.append("[RF ] report\n" + classification_report(yte_mc, rf_pred, digits=4))
             if args.cv and args.cv > 1:
                 tcv = time.perf_counter()
-                with threadpool_limits(limits=omp_threads):
+                with parallel_backend("loky", n_jobs=per_model_jobs):
                     rf_cv = cross_val_score(rf, X_rf, y_rf, cv=args.cv, n_jobs=per_model_jobs).mean()
                 logs.append(f"[RF ] cv{args.cv}={rf_cv:.4f}  elapsed={time.perf_counter() - tcv:.2f}s")
             return logs
@@ -245,9 +283,10 @@ def main():
                 max_depth=14,
                 min_samples_split=4,
                 random_state=args.seed,
+                splitter="best",
             )
-            with threadpool_limits(limits=omp_threads):
-                dt.fit(X_dt, y_dt)
+            # DecisionTree는 병렬화 제한적이지만 NumPy 연산은 병렬화
+            dt.fit(X_dt, y_dt)
             dt_pred = dt.predict(Xte)
             dt_acc = accuracy_score(yte_mc, dt_pred)
             logs.append(f"[DT ] acc={dt_acc:.4f}  elapsed={time.perf_counter() - t0:.2f}s")
@@ -267,8 +306,14 @@ def main():
         def job_knn():
             logs = []
             t0 = time.perf_counter()
-            knn = KNeighborsClassifier(n_neighbors=10, algorithm="auto", n_jobs=per_model_jobs)
-            with threadpool_limits(limits=omp_threads):
+            knn = KNeighborsClassifier(
+                n_neighbors=10,
+                algorithm="auto",
+                n_jobs=per_model_jobs,
+                leaf_size=30,
+            )
+            # loky 백엔드로 병렬 처리
+            with parallel_backend("loky", n_jobs=per_model_jobs):
                 knn.fit(X_knn, y_knn)
             knn_pred = knn.predict(Xte)
             knn_acc = accuracy_score(yte_mc, knn_pred)

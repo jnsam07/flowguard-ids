@@ -1,0 +1,6 @@
+{
+  "type": "binary",
+  "algo": "LogisticRegression(saga,balanced)",
+  "train_samples": 250000,
+  "test_acc": 0.9125407752410041
+}

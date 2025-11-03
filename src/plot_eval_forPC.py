@@ -17,6 +17,7 @@ from sklearn.metrics import (
     accuracy_score,
     classification_report,
     confusion_matrix,
+    f1_score,
     roc_curve,
     auc,
     precision_recall_curve,
@@ -28,16 +29,28 @@ try:
     from torch.utils.data import DataLoader, TensorDataset
     from train_cnn1d_forPC import DeepCNN1D
     from train_mlp_forPC import LargeMLP
+    try:
+        from train_cnn1d import TinyCNN1D
+    except Exception:
+        TinyCNN1D = None
+    try:
+        from train_mlp import MLP as BaseMLP
+    except Exception:
+        BaseMLP = None
     TORCH_AVAILABLE = True
 except Exception:
     TORCH_AVAILABLE = False
     DeepCNN1D = None
     LargeMLP = None
+    TinyCNN1D = None
+    BaseMLP = None
 
 
 BASE = Path(__file__).resolve().parents[1]
 DATA_DIR = BASE / "data" / "processed"
-MODEL_DIR = BASE / "models" / "pc"
+MODEL_DIR_BASE = BASE / "models"
+MODEL_DIR_PC = MODEL_DIR_BASE / "pc"
+MODEL_DIR_PC.mkdir(parents=True, exist_ok=True)
 OUT_DIR = BASE / "reports" / "pc"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -96,6 +109,21 @@ def report_to_matrix(rep_dict: dict, label_order: list[str]) -> np.ndarray:
     return np.array([prec, rec, f1])
 
 
+def maybe_standardize(raw: dict, X_np: np.ndarray) -> np.ndarray:
+    if not raw.get("standardize", False):
+        return X_np
+    mean = raw.get("feature_mean")
+    std = raw.get("feature_std")
+    if mean is None or std is None:
+        return X_np
+    mean = np.asarray(mean, dtype=np.float32)
+    std = np.asarray(std, dtype=np.float32)
+    if mean.size != X_np.shape[1] or std.size != X_np.shape[1]:
+        return X_np
+    std_safe = np.where(np.abs(std) < 1e-6, 1.0, std)
+    return (X_np - mean) / std_safe
+
+
 def _load_torch_state(path: Path, device):
     obj = torch.load(path, map_location=device)
     if isinstance(obj, dict):
@@ -106,9 +134,119 @@ def _load_torch_state(path: Path, device):
     return {"model_state": obj}, obj
 
 
-def torch_predict_bin(model, X_np: np.ndarray, device: "torch.device", batch_size: int = 16384):
+def plot_training_history(meta_path: Path, output_path: Path):
+    """
+    meta.json에서 history 데이터를 읽어서 에포크별 학습 곡선 그래프 생성
+    
+    Args:
+        meta_path: .meta.json 파일 경로
+        output_path: 저장할 그래프 파일 경로
+    """
+    if not meta_path.exists():
+        print(f"[WARN] {meta_path} not found, skipping history plot")
+        return
+    
+    with open(meta_path, 'r', encoding='utf-8') as f:
+        meta = json.load(f)
+    
+    if 'history' not in meta:
+        print(f"[WARN] No 'history' found in {meta_path.name}, skipping")
+        return
+    
+    history = meta['history']
+    epochs = history.get('epoch', [])
+    
+    if not epochs:
+        print(f"[WARN] Empty history in {meta_path.name}")
+        return
+    
+    # 4개의 서브플롯: Loss, Accuracy, Precision/Recall/F1, CV Accuracy
+    fig, axes = plt.subplots(2, 2, figsize=(14, 10))
+    
+    # 1. Training Loss
+    ax = axes[0, 0]
+    train_loss = history.get('train_loss', [])
+    if train_loss:
+        ax.plot(epochs, train_loss, 'b-', linewidth=2, label='Train Loss')
+        ax.set_xlabel('Epoch')
+        ax.set_ylabel('Loss')
+        ax.set_title('Training Loss over Epochs')
+        ax.grid(True, alpha=0.3)
+        ax.legend()
+    
+    # 2. Validation Accuracy
+    ax = axes[0, 1]
+    val_acc = history.get('val_acc', [])
+    if val_acc:
+        ax.plot(epochs, val_acc, 'g-', linewidth=2, label='Val Accuracy')
+        ax.set_xlabel('Epoch')
+        ax.set_ylabel('Accuracy')
+        ax.set_title('Validation Accuracy over Epochs')
+        ax.grid(True, alpha=0.3)
+        ax.legend()
+        ax.set_ylim([0, 1.05])
+    
+    # 3. Precision, Recall, F1
+    ax = axes[1, 0]
+    val_prec = history.get('val_precision', [])
+    val_rec = history.get('val_recall', [])
+    val_f1 = history.get('val_f1', [])
+    
+    if val_prec:
+        ax.plot(epochs, val_prec, 'r-', linewidth=2, label='Precision')
+    if val_rec:
+        ax.plot(epochs, val_rec, 'b-', linewidth=2, label='Recall')
+    if val_f1:
+        ax.plot(epochs, val_f1, 'g-', linewidth=2, label='F1-Score')
+    
+    ax.set_xlabel('Epoch')
+    ax.set_ylabel('Score')
+    ax.set_title('Validation Metrics (Precision, Recall, F1)')
+    ax.grid(True, alpha=0.3)
+    ax.legend()
+    ax.set_ylim([0, 1.05])
+    
+    # 4. Test CV Accuracy (test.csv 사용)
+    ax = axes[1, 1]
+    test_cv = history.get('test_cv_acc', [])
+    if test_cv:
+        # None이 아닌 값만 필터링
+        cv_epochs = [ep for ep, cv in zip(epochs, test_cv) if cv is not None]
+        cv_scores = [cv for cv in test_cv if cv is not None]
+        
+        if cv_scores:
+            ax.plot(cv_epochs, cv_scores, 'mo-', linewidth=2, markersize=8, label='Test CV Accuracy')
+            ax.set_xlabel('Epoch')
+            ax.set_ylabel('CV Accuracy')
+            ax.set_title('Cross-Validation Accuracy (test.csv)')
+            ax.grid(True, alpha=0.3)
+            ax.legend()
+            ax.set_ylim([0, 1.05])
+            
+            # CV 점수 텍스트로 표시
+            for ep, cv in zip(cv_epochs, cv_scores):
+                ax.text(ep, cv + 0.02, f'{cv:.3f}', ha='center', va='bottom', fontsize=8)
+    
+    model_name = meta_path.stem.replace('.meta', '')
+    fig.suptitle(f'Training History: {model_name}', fontsize=14, fontweight='bold')
+    fig.tight_layout()
+    fig.savefig(output_path, dpi=150, bbox_inches='tight')
+    plt.close(fig)
+    print(f"[SAVE] Training history plot → {output_path}")
+
+
+
+def torch_predict_bin(
+    model,
+    X_np: np.ndarray,
+    device: "torch.device",
+    batch_size: int = 16384,
+    add_channel: bool = False,
+):
     model.eval()
-    xs = torch.from_numpy(X_np.astype(np.float32, copy=False)).unsqueeze(1)
+    xs = torch.from_numpy(X_np.astype(np.float32, copy=False))
+    if add_channel:
+        xs = xs.unsqueeze(1)
     ds = TensorDataset(xs)
     loader = DataLoader(ds, batch_size=batch_size, shuffle=False)
     preds, scores = [], []
@@ -149,64 +287,86 @@ def main():
     bin_models: list[tuple[str, np.ndarray, np.ndarray]] = []
 
     # Load traditional baselines
-    lr_path = MODEL_DIR / "lr_pc_bin.joblib"
-    if lr_path.exists():
-        lr = load(lr_path)
-        y_pred = lr.predict(Xte)
-        y_score = lr.predict_proba(Xte)[:, 1]
-        bin_models.append(("Logistic Regression (PC)", y_pred, y_score))
-        rep = classification_report(yte_bin, y_pred, target_names=["BENIGN", "ATTACK"], digits=4)
-        (OUT_DIR / "binary_report_LR_pc.txt").write_text(rep)
+    lr_variants = [
+        (MODEL_DIR_BASE / "lr_bin.joblib", "Logistic Regression (Base)", "binary_report_LR.txt"),
+        (MODEL_DIR_PC / "lr_pc_bin.joblib", "Logistic Regression (PC)", "binary_report_LR_pc.txt"),
+    ]
+    for lr_path, lr_label, lr_report_name in lr_variants:
+        if lr_path.exists():
+            lr = load(lr_path)
+            y_pred = lr.predict(Xte)
+            y_score = lr.predict_proba(Xte)[:, 1]
+            bin_models.append((lr_label, y_pred, y_score))
+            rep = classification_report(yte_bin, y_pred, target_names=["BENIGN", "ATTACK"], digits=4)
+            (OUT_DIR / lr_report_name).write_text(rep)
 
-    svm_path = MODEL_DIR / "svm_pc_bin.joblib"
-    if svm_path.exists():
-        svm = load(svm_path)
-        if hasattr(svm, "decision_function"):
-            y_score = svm.decision_function(Xte)
-        else:
-            y_score = svm.predict_proba(Xte)[:, 1]
-        y_pred = svm.predict(Xte)
-        bin_models.append(("SVM (PC)", y_pred, y_score))
-        rep = classification_report(yte_bin, y_pred, target_names=["BENIGN", "ATTACK"], digits=4)
-        (OUT_DIR / "binary_report_SVM_pc.txt").write_text(rep)
+    svm_variants = [
+        (MODEL_DIR_BASE / "svm_bin.joblib", "Support Vector Machine (Base)", "binary_report_SVM.txt"),
+        (MODEL_DIR_PC / "svm_pc_bin.joblib", "Support Vector Machine (PC)", "binary_report_SVM_pc.txt"),
+    ]
+    for svm_path, svm_label, svm_report_name in svm_variants:
+        if svm_path.exists():
+            svm = load(svm_path)
+            if hasattr(svm, "decision_function"):
+                y_score = svm.decision_function(Xte)
+            else:
+                y_score = svm.predict_proba(Xte)[:, 1]
+            y_pred = svm.predict(Xte)
+            bin_models.append((svm_label, y_pred, y_score))
+            rep = classification_report(yte_bin, y_pred, target_names=["BENIGN", "ATTACK"], digits=4)
+            (OUT_DIR / svm_report_name).write_text(rep)
 
     if TORCH_AVAILABLE:
         device = torch.device("cuda" if torch.cuda.is_available() else ("mps" if torch.backends.mps.is_available() else "cpu"))
         pc_dim = Xte.shape[1]
 
-        cnn_path = MODEL_DIR / "cnn1d_pc_bin.pt"
-        if cnn_path.exists() and DeepCNN1D is not None:
-            raw, state = _load_torch_state(cnn_path, device)
-            channels = tuple(int(c) for c in raw.get("channels", raw.get("hidden_channels", [64, 128, 256])))
-            fc_hidden = int(raw.get("fc_hidden", 512))
-            kernel = int(raw.get("kernel_size", 3))
-            dropout = float(raw.get("dropout", 0.25))
-            cnn = DeepCNN1D(
-                in_len=pc_dim,
-                num_classes=2,
-                binary=True,
-                channels=channels,
-                kernel_size=kernel,
-                fc_hidden=fc_hidden,
-                dropout=dropout,
-            ).to(device)
-            cnn.load_state_dict(state, strict=True)
-            preds, scores = torch_predict_bin(cnn, Xte_np, device)
-            bin_models.append(("CNN-1D (PC)", preds, scores))
-            rep = classification_report(yte_bin, preds, target_names=["BENIGN", "ATTACK"], digits=4)
-            (OUT_DIR / "binary_report_CNN1D_pc.txt").write_text(rep)
+        # CNN variants
+        cnn_variants = [
+            (MODEL_DIR_BASE / "cnn1d_bin.pt", "CNN-1D (Base)", "binary_report_CNN1D.txt", TinyCNN1D, True),
+            (MODEL_DIR_PC / "cnn1d_pc_bin.pt", "CNN-1D (PC)", "binary_report_CNN1D_pc.txt", DeepCNN1D, True),
+        ]
+        for cnn_path, cnn_label, cnn_report, cnn_cls, needs_channel in cnn_variants:
+            if cnn_path.exists() and cnn_cls is not None:
+                raw, state = _load_torch_state(cnn_path, device)
+                channels = tuple(int(c) for c in raw.get("channels", raw.get("hidden_channels", [64, 128, 256])))
+                fc_hidden = int(raw.get("fc_hidden", 512))
+                kernel = int(raw.get("kernel_size", 3))
+                dropout = float(raw.get("dropout", 0.25))
+                model_kwargs = dict(
+                    in_len=pc_dim,
+                    num_classes=2,
+                    binary=True,
+                    channels=channels,
+                )
+                if cnn_cls is DeepCNN1D:
+                    model_kwargs.update(dict(kernel_size=kernel, fc_hidden=fc_hidden, dropout=dropout))
+                cnn_model = cnn_cls(**model_kwargs).to(device)
+                cnn_model.load_state_dict(state, strict=True)
+                preds, scores = torch_predict_bin(cnn_model, Xte_np, device, add_channel=needs_channel)
+                bin_models.append((cnn_label, preds, scores))
+                rep = classification_report(yte_bin, preds, target_names=["BENIGN", "ATTACK"], digits=4)
+                (OUT_DIR / cnn_report).write_text(rep)
 
-        mlp_path = MODEL_DIR / "mlp_pc_bin.pt"
-        if mlp_path.exists() and LargeMLP is not None:
-            raw, state = _load_torch_state(mlp_path, device)
-            hidden = [int(h) for h in raw.get("hidden", [1024, 512, 256, 128])]
-            dropout = float(raw.get("dropout", 0.3))
-            mlp = LargeMLP(in_dim=pc_dim, hidden=hidden, out_dim=1, dropout=dropout).to(device)
-            mlp.load_state_dict(state, strict=True)
-            preds, scores = torch_predict_bin(mlp, Xte_np, device)
-            bin_models.append(("MLP (PC)", preds, scores))
-            rep = classification_report(yte_bin, preds, target_names=["BENIGN", "ATTACK"], digits=4)
-            (OUT_DIR / "binary_report_MLP_pc.txt").write_text(rep)
+        # MLP variants
+        mlp_variants = [
+            (MODEL_DIR_BASE / "mlp_bin.pt", "MLP (Base)", "binary_report_MLP.txt", BaseMLP, False),
+            (MODEL_DIR_PC / "mlp_pc_bin.pt", "MLP (PC)", "binary_report_MLP_pc.txt", LargeMLP, True),
+        ]
+        for mlp_path, mlp_label, mlp_report, mlp_cls, apply_standardize in mlp_variants:
+            if mlp_path.exists() and mlp_cls is not None:
+                raw, state = _load_torch_state(mlp_path, device)
+                hidden = [int(h) for h in raw.get("hidden", [512, 256, 128])]
+                dropout = float(raw.get("dropout", 0.3))
+                mlp_kwargs = dict(in_dim=pc_dim, hidden=hidden, out_dim=1)
+                if mlp_cls is LargeMLP:
+                    mlp_kwargs["dropout"] = dropout
+                mlp_model = mlp_cls(**mlp_kwargs).to(device)
+                mlp_model.load_state_dict(state, strict=True)
+                X_input = maybe_standardize(raw, Xte_np).astype(np.float32, copy=False) if apply_standardize else Xte_np
+                preds, scores = torch_predict_bin(mlp_model, X_input, device)
+                bin_models.append((mlp_label, preds, scores))
+                rep = classification_report(yte_bin, preds, target_names=["BENIGN", "ATTACK"], digits=4)
+                (OUT_DIR / mlp_report).write_text(rep)
 
     # Binary plots
     if bin_models:
@@ -243,9 +403,23 @@ def main():
         fig.savefig(OUT_DIR / "binary_accuracy_bar_pc.png", dpi=150, bbox_inches="tight")
         plt.close(fig)
 
+        f1s = [(name, f1_score(yte_bin, pred, zero_division=0)) for name, pred, _ in bin_models]
+        labels_f1, scores_f1 = zip(*f1s)
+        fig, ax = plt.subplots(figsize=(9, 3))
+        palette = sns.color_palette("Oranges", n_colors=len(labels_f1))
+        ax.barh(labels_f1, scores_f1, color=palette)
+        ax.set_xlim([0, 1])
+        ax.set_xlabel("F1-Score")
+        ax.set_title("Binary Model F1 Comparison (PC)")
+        for i, v in enumerate(scores_f1):
+            ax.text(v + 0.01, i, f"{v:.3f}", ha="left", va="center")
+        fig.tight_layout()
+        fig.savefig(OUT_DIR / "binary_f1_bar_pc.png", dpi=150, bbox_inches="tight")
+        plt.close(fig)
+
     # Multiclass models
     mc_models: list[tuple[str, np.ndarray, float]] = []
-    rf_path = MODEL_DIR / "rf_pc_multi.joblib"
+    rf_path = MODEL_DIR_BASE / "rf_multi.joblib"
     if rf_path.exists():
         rf = load(rf_path)
         y_pred = rf.predict(Xte)
@@ -254,7 +428,7 @@ def main():
         rep = classification_report(yte_mc, y_pred, digits=4)
         (OUT_DIR / "multiclass_report_RF_pc.txt").write_text(rep)
 
-    dt_path = MODEL_DIR / "dt_pc_multi.joblib"
+    dt_path = MODEL_DIR_BASE / "dt_multi.joblib"
     if dt_path.exists():
         dt = load(dt_path)
         y_pred = dt.predict(Xte)
@@ -263,7 +437,7 @@ def main():
         rep = classification_report(yte_mc, y_pred, digits=4)
         (OUT_DIR / "multiclass_report_DT_pc.txt").write_text(rep)
 
-    knn_path = MODEL_DIR / "knn_pc_multi.joblib"
+    knn_path = MODEL_DIR_BASE / "knn_multi.joblib"
     if knn_path.exists():
         knn = load(knn_path)
         y_pred = knn.predict(Xte)
@@ -272,7 +446,7 @@ def main():
         rep = classification_report(yte_mc, y_pred, digits=4)
         (OUT_DIR / "multiclass_report_KNN_pc.txt").write_text(rep)
 
-    cnn_multi_path = MODEL_DIR / "cnn1d_pc_multi.pt"
+    cnn_multi_path = MODEL_DIR_PC / "cnn1d_pc_multi.pt"
     if TORCH_AVAILABLE and cnn_multi_path.exists() and DeepCNN1D is not None:
         raw, state = _load_torch_state(cnn_multi_path, torch.device("cpu"))
         channels = tuple(int(c) for c in raw.get("channels", [64, 128, 256]))
@@ -306,7 +480,7 @@ def main():
             rep = classification_report(yte_mc, [classes[p] for p in preds], target_names=classes, digits=4)
             (OUT_DIR / "multiclass_report_CNN1D_pc.txt").write_text(rep)
 
-    mlp_multi_path = MODEL_DIR / "mlp_pc_multi.pt"
+    mlp_multi_path = MODEL_DIR_PC / "mlp_pc_multi.pt"
     if TORCH_AVAILABLE and mlp_multi_path.exists() and LargeMLP is not None:
         raw, state = _load_torch_state(mlp_multi_path, torch.device("cpu"))
         hidden = [int(h) for h in raw.get("hidden", [1024, 512, 256, 128])]
@@ -316,7 +490,8 @@ def main():
             device = torch.device("cuda" if torch.cuda.is_available() else ("mps" if torch.backends.mps.is_available() else "cpu"))
             model = LargeMLP(in_dim=Xte.shape[1], hidden=hidden, out_dim=len(classes), dropout=dropout).to(device)
             model.load_state_dict(state, strict=True)
-            xs = torch.from_numpy(Xte_np)
+            Xte_mlp_multi = maybe_standardize(raw, Xte_np).astype(np.float32, copy=False)
+            xs = torch.from_numpy(Xte_mlp_multi)
             loader = DataLoader(TensorDataset(xs), batch_size=8192, shuffle=False)
             preds_list = []
             with torch.no_grad():
@@ -365,7 +540,15 @@ def main():
         df_sum = pd.DataFrame(rows)
         df_sum.to_csv(OUT_DIR / "summary_accuracy_pc.csv", index=False)
 
-    print(f"[DONE] Reports & figures -> {OUT_DIR}")
+    # 학습 히스토리 그래프 생성 (CNN, MLP의 meta.json에서 읽기)
+    print("\n[INFO] Plotting training histories...")
+    for meta_root in (MODEL_DIR_PC, MODEL_DIR_BASE):
+        for meta_file in meta_root.glob("*.meta.json"):
+            model_name = meta_file.stem.replace('.meta', '')
+            history_plot_path = OUT_DIR / f"history_{model_name}.png"
+            plot_training_history(meta_file, history_plot_path)
+
+    print(f"[DONE] Reports & figures → {OUT_DIR}")
 
 
 if __name__ == "__main__":
