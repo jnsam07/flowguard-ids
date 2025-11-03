@@ -13,7 +13,7 @@
             │
             ▼
        1) 데이터 병합 (merge_raw.py)
-         ↓
+                ↓
        2) 전처리 & 라벨 정제 (clean_encode.py)
                 ↓
        3) 차원 축소 PCA (reduce_pca.py)
