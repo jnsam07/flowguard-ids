@@ -7,7 +7,7 @@
 
 2단계 지능형 침입 탐지 시스템 (Two-Stage Intrusion Detection System)
 
-### 🤖모델 개발 과정🤖
+## 🤖모델 개발 과정🤖
 
             [Raw Data]
                 │
