@@ -209,5 +209,3 @@ MIT License - 자유롭게 사용 가능
 **온라인 데모**: [https://flowguard-ids.streamlit.app](https://flowguard-ids.streamlit.app)
 
 ---
-
-Made with ❤️ using Streamlit and PyTorch
