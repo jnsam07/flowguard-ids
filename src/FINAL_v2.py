@@ -337,7 +337,7 @@ def create_share_buttons(share_text: str):
 
 def main():
     # Mobile user notice (outside sidebar)
-    st.info("📱 **모바일 사용자 안내:** 화면 왼쪽 상단의 **보라색 동그란 버튼 (>>)** 을 눌러 설정 메뉴를 열고 닫을 수 있습니다!")
+    st.info("📱 **모바일 사용자 안내:** 화면 왼쪽 상단의 버튼 (>>)** 을 눌러 설정 메뉴를 열고 닫을 수 있습니다!")
     
     st.title("🛡️ FlowGuard IDS – AI-Powered Network Security")
     
