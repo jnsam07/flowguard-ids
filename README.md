@@ -7,6 +7,45 @@
 
 2단계 지능형 침입 탐지 시스템 (Two-Stage Intrusion Detection System)
 
+## 🤖모델 개발 과정🤖
+
+            [Raw Data]
+                │
+                ▼
+       1) 데이터 병합 (merge_raw.py)
+                ↓
+       2) 전처리 & 라벨 정제 (clean_encode.py)
+                ↓
+       3) 차원 축소 PCA (reduce_pca.py)
+                ↓
+       4) Train / Test Split (split_build.py)
+                ↓
+       ┌───────────── Model Training ────────────----─┐
+       │  ML (Multi-class)  |  DL (Binary Detection)  │
+       │  ───────────────── | ─────────────────────── │
+       │  RF / DT / KNN     | CNN-1D / MLP            │
+       └──────────────────────────────────────────────┘
+                   ▼
+       모델 평가 (plot_eval.py)
+                   ▼
+       최종 모델 저장 및 UI 연동 (FINAL.py)
+
+데이터 → 전처리 → 학습 → 평가 의 순서
+
+먼저 Raw 데이터를 병합하고, 전처리 과정에서 라벨을 정제한 뒤,
+PCA로 차원을 줄여 학습 가능한 형태의 데이터셋을 생성.
+
+이후 Machine Learning 모델(RandomForest, DecisionTree, KNN)은 한 번에 묶어서 학습하고,
+Deep Learning 모델인 CNN-1D와 MLP는 구조가 서로 달라서 별도로 학습.
+
+plot_eval을 통해 Accuracy, Precision, Recall, F1-score 등을 비교하여
+최종 모델을 선택
+
+최종적인 모델은 Streamlit 기반 UI로 배포.
+
+
+
+
 ## ✨ 주요 기능
 
 ### 🎯 2단계 탐지 시스템
@@ -157,6 +196,7 @@ MIT License - 자유롭게 사용 가능
 - **Author**: jnsam07
 - **GitHub**: https://github.com/jnsam07
 - **Project**: https://github.com/jnsam07/flowguard-ids
+- **E-mail**: jnsam07@soongsil.ac.kr
 
 ## 📞 지원
 
@@ -169,5 +209,3 @@ MIT License - 자유롭게 사용 가능
 **온라인 데모**: [https://flowguard-ids.streamlit.app](https://flowguard-ids.streamlit.app)
 
 ---
-
-Made with ❤️ using Streamlit and PyTorch
