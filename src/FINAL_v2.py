@@ -56,6 +56,57 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Custom CSS for better mobile sidebar visibility and guide
+st.markdown("""
+<style>
+    /* Mobile sidebar toggle button enhancement */
+    [data-testid="collapsedControl"] {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        color: white !important;
+        border-radius: 50% !important;
+        width: 50px !important;
+        height: 50px !important;
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.5) !important;
+    }
+    
+    [data-testid="collapsedControl"]:hover {
+        box-shadow: 0 6px 16px rgba(102, 126, 234, 0.7) !important;
+        transform: scale(1.1);
+    }
+    
+    /* Guide box styling */
+    .guide-box {
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        padding: 20px;
+        border-radius: 10px;
+        border-left: 5px solid #667eea;
+        margin-bottom: 20px;
+    }
+    
+    .guide-step {
+        background: white;
+        padding: 15px;
+        margin: 10px 0;
+        border-radius: 8px;
+        border-left: 4px solid #764ba2;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .guide-step h4 {
+        color: #667eea;
+        margin: 0 0 10px 0;
+    }
+    
+    .tip-box {
+        background: #fff3cd;
+        border-left: 4px solid #ffc107;
+        padding: 12px;
+        border-radius: 5px;
+        margin: 10px 0;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 
 @st.cache_resource
 def load_pc_feature_columns() -> list[str]:
@@ -309,18 +360,102 @@ def create_share_buttons(share_text: str):
         st.markdown(f'<a href="{linkedin_url}" target="_blank"><button style="width:100%; padding:10px; background:#0077B5; color:white; border:none; border-radius:5px; cursor:pointer;">💼 LinkedIn</button></a>', unsafe_allow_html=True)
     
     with col4:
-        # Copy to clipboard button
-        escaped_text = share_text.replace("'", "\\'").replace('"', '\\"').replace('\n', '\\n')
-        st.markdown(f"""
-        <button onclick="navigator.clipboard.writeText('{escaped_text}'); alert('클립보드에 복사되었습니다!');" 
-                style="width:100%; padding:10px; background:#25D366; color:white; border:none; border-radius:5px; cursor:pointer;">
-            📋 복사
-        </button>
-        """, unsafe_allow_html=True)
+        # Copy to clipboard button - Using Streamlit's built-in mechanism
+        if st.button("📋 복사", key="copy_button", use_container_width=True):
+            st.code(share_text, language=None)
+            st.success("✅ 위 텍스트를 복사하세요!")
 
 
 def main():
     st.title("🛡️ FlowGuard IDS – AI-Powered Network Security")
+    
+    # Detailed User Guide
+    with st.expander("📖 사용 가이드 (처음 사용하시나요? 여기를 클릭하세요!)", expanded=False):
+        st.markdown("""
+        <div class="guide-box">
+            <h3 style="color: #667eea; margin-top: 0;">🎯 FlowGuard IDS 사용 방법</h3>
+            
+            <div class="guide-step">
+                <h4>1️⃣ 모델 선택 (왼쪽 사이드바)</h4>
+                <p><strong>📱 모바일 사용자:</strong> 화면 왼쪽 상단의 <strong>보라색 동그란 버튼 (>>)</strong>을 눌러 사이드바를 여세요!</p>
+                <ul>
+                    <li><strong>Stage 1 모델:</strong> 정상/공격 트래픽을 구분하는 딥러닝 모델을 선택
+                        <ul>
+                            <li><strong>MLP:</strong> 빠르고 가벼운 신경망 (기본 권장)</li>
+                            <li><strong>CNN-1D:</strong> 더 정확하지만 느린 합성곱 신경망</li>
+                        </ul>
+                    </li>
+                    <li><strong>Stage 2 모델:</strong> 공격 유형을 세부 분류하는 머신러닝 모델을 선택
+                        <ul>
+                            <li><strong>Random Forest:</strong> 가장 정확한 모델 (기본 권장, 9개 공격 유형)</li>
+                            <li><strong>Decision Tree:</strong> 빠른 예측 (8개 공격 유형)</li>
+                            <li><strong>K-NN:</strong> 간단한 모델 (7개 공격 유형)</li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+            
+            <div class="guide-step">
+                <h4>2️⃣ 데이터 준비</h4>
+                <p><strong>두 가지 방법 중 선택:</strong></p>
+                <ul>
+                    <li><strong>테스트 데이터 샘플:</strong> 기본 제공되는 샘플 데이터 사용 (빠른 테스트용)</li>
+                    <li><strong>CSV 업로드:</strong> 직접 준비한 네트워크 트래픽 데이터 업로드
+                        <ul>
+                            <li>필수 컬럼: PC1, PC2, ..., PC35 (PCA 처리된 특성)</li>
+                            <li>선택 컬럼: Attack Type (실제 공격 유형)</li>
+                        </ul>
+                    </li>
+                </ul>
+                <p><strong>샘플 개수:</strong> 슬라이더로 분석할 데이터 양 조절 (1~200개)</p>
+            </div>
+            
+            <div class="guide-step">
+                <h4>3️⃣ 분석 실행</h4>
+                <p><strong>"🚀 분석 실행"</strong> 버튼을 클릭하세요!</p>
+                <ul>
+                    <li>Stage 1: 먼저 정상/공격 트래픽 구분</li>
+                    <li>Stage 2: 공격으로 분류된 트래픽의 공격 유형 세부 분석</li>
+                    <li>분석 시간: 샘플 개수에 따라 수 초~수십 초 소요</li>
+                </ul>
+            </div>
+            
+            <div class="guide-step">
+                <h4>4️⃣ 결과 확인</h4>
+                <p>분석 완료 후 다음 정보를 확인할 수 있습니다:</p>
+                <ul>
+                    <li><strong>📊 요약 통계:</strong> 전체 트래픽, 정상 트래픽, 공격 트래픽 수</li>
+                    <li><strong>🎯 상세 결과 테이블:</strong> 각 트래픽의 예측 결과 (색상 코딩)
+                        <ul>
+                            <li>🟢 초록색: 정상 트래픽 (BENIGN)</li>
+                            <li>🔴 빨간색: 공격 트래픽</li>
+                        </ul>
+                    </li>
+                    <li><strong>📈 공격 유형 분포:</strong> 탐지된 공격의 종류별 개수 차트</li>
+                </ul>
+            </div>
+            
+            <div class="guide-step">
+                <h4>5️⃣ 결과 공유 및 저장</h4>
+                <ul>
+                    <li><strong>SNS 공유:</strong> Twitter, Facebook, LinkedIn 버튼 클릭</li>
+                    <li><strong>📋 복사:</strong> 복사 버튼 클릭 후 나타나는 텍스트를 복사</li>
+                    <li><strong>💾 CSV 다운로드:</strong> 상세 결과를 CSV 파일로 저장</li>
+                </ul>
+            </div>
+            
+            <div class="tip-box">
+                <strong>💡 팁:</strong>
+                <ul style="margin: 5px 0 0 0;">
+                    <li>처음 사용하시면 <strong>MLP + Random Forest</strong> 조합을 추천합니다!</li>
+                    <li>샘플 개수는 <strong>50개</strong>로 시작해보세요 (빠른 분석)</li>
+                    <li>모바일에서는 가로 모드로 보시면 더 편합니다!</li>
+                    <li>궁금한 점은 각 옵션 옆의 <strong>❓</strong> 아이콘을 클릭하세요</li>
+                </ul>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    
     st.markdown(
         """
         <div style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
@@ -336,14 +471,25 @@ def main():
     )
 
     with st.sidebar:
+        # Mobile user notice
+        st.markdown("""
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                    padding: 15px; border-radius: 10px; color: white; margin-bottom: 15px; text-align: center;">
+            <strong>📱 모바일 사용자 안내</strong><br>
+            <small>화면 왼쪽 상단의 <strong style="font-size: 1.2em;">보라색 동그란 버튼 (>>)</strong>을<br>
+            눌러 이 메뉴를 열고 닫을 수 있습니다!</small>
+        </div>
+        """, unsafe_allow_html=True)
+        
         st.markdown("### 🤖 모델 선택")
+        st.info("💡 처음이시라면 기본 설정(MLP + Random Forest)을 추천합니다!")
         
         st.markdown("**Stage 1: 이진 분류 모델**")
         stage1_model = st.selectbox(
             "딥러닝 모델 선택",
             list(STAGE1_MODELS.keys()),
             index=0,  # Default: MLP
-            help="정상/공격 트래픽을 구분하는 딥러닝 모델"
+            help="💡 MLP: 빠르고 가벼움(권장) / CNN-1D: 더 정확하지만 느림"
         )
         
         st.markdown("**Stage 2: 공격 유형 분류 모델**")
@@ -351,16 +497,29 @@ def main():
             "머신러닝 모델 선택",
             list(STAGE2_MODELS.keys()),
             index=0,  # Default: Random Forest
-            help="공격 유형을 세부 분류하는 머신러닝 모델"
+            help="💡 RF: 가장 정확(권장, 9개 유형) / DT: 빠름(8개 유형) / KNN: 간단(7개 유형)"
         )
         
         st.markdown("---")
         st.markdown("### 📂 데이터 설정")
-        mode = st.radio("데이터 소스", ["테스트 데이터 샘플", "CSV 업로드"])
-        sample_size = st.slider("📊 샘플 개수", 1, 200, 50)
+        st.info("💡 처음이시라면 '테스트 데이터 샘플'과 샘플 개수 50개를 추천합니다!")
+        mode = st.radio(
+            "데이터 소스", 
+            ["테스트 데이터 샘플", "CSV 업로드"],
+            help="테스트 데이터 샘플: 빠른 테스트 / CSV 업로드: 직접 준비한 데이터 분석"
+        )
+        sample_size = st.slider(
+            "📊 샘플 개수", 
+            1, 200, 50,
+            help="분석할 데이터 개수. 많을수록 시간이 오래 걸립니다."
+        )
         uploaded = None
         if mode == "CSV 업로드":
-            uploaded = st.file_uploader("📁 CSV 파일을 업로드하세요", type=["csv"])
+            uploaded = st.file_uploader(
+                "📁 CSV 파일을 업로드하세요", 
+                type=["csv"],
+                help="PC1~PC35 컬럼이 필요합니다. Attack Type 컬럼은 선택사항입니다."
+            )
         
         st.markdown("---")
         st.markdown("### 🌐 배포 정보")
@@ -419,13 +578,18 @@ def main():
             df_input = pd.DataFrame(dummy_data)
             st.info(f"🧪 **{n_samples}개** 데모 샘플을 생성했습니다. CSV를 업로드하여 실제 데이터를 분석하세요.")
 
+    st.markdown("---")
+    st.markdown("### 🚀 분석 시작")
+    st.info("💡 모든 설정을 완료하셨나요? 아래 버튼을 클릭하여 분석을 시작하세요!")
+    
     if st.button("🚀 분석 실행", type="primary", use_container_width=True):
-        with st.spinner(f"🔍 {stage1_model} & {stage2_model} 모델로 분석 중..."):
+        with st.spinner(f"🔍 {stage1_model} & {stage2_model} 모델로 분석 중... (잠시만 기다려주세요)"):
             try:
                 results = run_pipeline(df_input, stage1_model, stage2_model)
                 
                 st.markdown("---")
                 st.markdown("### 📊 분석 결과")
+                st.success("✅ 분석이 완료되었습니다! 아래에서 결과를 확인하세요.")
                 
                 # Statistics
                 total = len(results)
@@ -433,6 +597,7 @@ def main():
                 normal_count = total - attack_count
                 attack_ratio = (attack_count / total * 100) if total > 0 else 0
                 
+                st.markdown("#### 📈 요약 통계")
                 col1, col2, col3 = st.columns(3)
                 with col1:
                     st.metric("전체 트래픽", f"{total:,} 건")
@@ -447,6 +612,7 @@ def main():
                 
                 # Results table
                 st.markdown("### 🎯 상세 탐지 결과")
+                st.info("💡 표 색상: 🟢 초록색 = 정상 트래픽 / 🔴 빨간색 = 공격 트래픽")
                 
                 def highlight_status(row):
                     if row["분류"] == "공격":
@@ -464,6 +630,7 @@ def main():
                 if attack_count > 0:
                     st.markdown("---")
                     st.markdown("### 🎭 공격 유형 분포")
+                    st.info("💡 탐지된 공격의 종류별 개수를 보여줍니다.")
                     attack_types = results[results["분류"] == "공격"]["공격 유형"].value_counts()
                     attack_types_dict = attack_types.to_dict()
                     
@@ -479,14 +646,16 @@ def main():
                 # Share functionality
                 st.markdown("---")
                 st.markdown("### 📤 결과 공유")
+                st.info("💡 SNS에 공유하거나, '📋 복사' 버튼을 눌러 텍스트를 확인 후 복사하세요!")
                 
                 share_text = create_share_text(total, attack_count, normal_count, attack_types_dict)
                 
-                st.text_area("공유할 텍스트", share_text, height=200)
                 create_share_buttons(share_text)
                 
                 # Download button
                 st.markdown("---")
+                st.markdown("### 💾 결과 저장")
+                st.info("💡 분석 결과를 CSV 파일로 저장하여 나중에 다시 확인할 수 있습니다!")
                 csv_bytes = results.to_csv(index=False).encode("utf-8")
                 st.download_button(
                     "💾 결과를 CSV로 다운로드", 
@@ -499,6 +668,9 @@ def main():
             except Exception as exc:
                 st.error(f"❌ 분석 중 오류가 발생했습니다: {exc}")
                 st.exception(exc)
+    else:
+        # Display guide when button not clicked
+        st.info("👆 위의 '📖 사용 가이드'를 펼쳐보시고, 왼쪽 사이드바에서 모델과 데이터를 선택한 후 '🚀 분석 실행' 버튼을 클릭하세요!")
 
 
 if __name__ == "__main__":
