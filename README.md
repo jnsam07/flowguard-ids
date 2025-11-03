@@ -7,6 +7,30 @@
 
 2단계 지능형 침입 탐지 시스템 (Two-Stage Intrusion Detection System)
 
+### 🤖모델 개발 과정🤖
+
+       [Raw Data]
+            │
+            ▼
+   1) 데이터 병합 (merge_raw.py)
+         ↓
+   2) 전처리 & 라벨 정제 (clean_encode.py)
+         ↓
+   3) 차원 축소 PCA (reduce_pca.py)
+         ↓
+   4) Train / Test Split (split_build.py)
+         ↓
+┌───────────── Model Training ────────────----─┐
+│  ML (Multi-class)  |  DL (Binary Detection)  │
+│  ───────────────── | ─────────────────────── │
+│  RF / DT / KNN     | CNN-1D / MLP            │
+└──────────────────────────────────────────────┘
+            ▼
+       모델 평가 (plot_eval.py)
+            ▼
+    최종 모델 저장 및 UI 연동 (FINAL.py)
+
+
 ## ✨ 주요 기능
 
 ### 🎯 2단계 탐지 시스템
@@ -157,6 +181,7 @@ MIT License - 자유롭게 사용 가능
 - **Author**: jnsam07
 - **GitHub**: https://github.com/jnsam07
 - **Project**: https://github.com/jnsam07/flowguard-ids
+- **E-mail**: jnsam07@soongsil.ac.kr
 
 ## 📞 지원
 
