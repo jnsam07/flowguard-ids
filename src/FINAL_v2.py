@@ -59,8 +59,14 @@ st.set_page_config(
 
 @st.cache_resource
 def load_pc_feature_columns() -> list[str]:
-    sample = pd.read_csv(DATA_DIR / "test.csv", nrows=1)
-    return [c for c in sample.columns if c.startswith("PC")]
+    """Load PC feature columns from test.csv or generate default list"""
+    test_path = DATA_DIR / "test.csv"
+    if test_path.exists():
+        sample = pd.read_csv(test_path, nrows=1)
+        return [c for c in sample.columns if c.startswith("PC")]
+    else:
+        # Default: 35 PC features (as per CNN meta file)
+        return [f"PC{i}" for i in range(1, 36)]
 
 
 @st.cache_resource
@@ -390,9 +396,28 @@ def main():
         df_input = pd.read_csv(uploaded)
         st.success(f"✅ 업로드 성공: {len(df_input):,} 건의 트래픽 데이터")
     else:
-        test_df = pd.read_csv(DATA_DIR / "test.csv")
-        df_input = test_df.sample(sample_size, random_state=42).reset_index(drop=True)
-        st.info(f"📥 테스트 데이터에서 **{sample_size}개** 샘플을 선택했습니다.")
+        # Try to load test.csv, if not available create dummy data
+        test_path = DATA_DIR / "test.csv"
+        if test_path.exists():
+            test_df = pd.read_csv(test_path)
+            df_input = test_df.sample(sample_size, random_state=42).reset_index(drop=True)
+            st.info(f"📥 테스트 데이터에서 **{sample_size}개** 샘플을 선택했습니다.")
+        else:
+            # Create dummy test data
+            st.warning("⚠️ 테스트 데이터 파일이 없습니다. 데모용 데이터를 생성합니다.")
+            pc_cols = load_pc_feature_columns()
+            n_samples = min(sample_size, 100)
+            
+            # Generate random PC features
+            np.random.seed(42)
+            dummy_data = {col: np.random.randn(n_samples) for col in pc_cols}
+            
+            # Add attack types
+            attack_types = ['BENIGN', 'Bot', 'DDoS', 'DoS', 'Port Scan', 'Brute Force']
+            dummy_data['Attack Type'] = np.random.choice(attack_types, n_samples)
+            
+            df_input = pd.DataFrame(dummy_data)
+            st.info(f"🧪 **{n_samples}개** 데모 샘플을 생성했습니다. CSV를 업로드하여 실제 데이터를 분석하세요.")
 
     if st.button("🚀 분석 실행", type="primary", use_container_width=True):
         with st.spinner(f"🔍 {stage1_model} & {stage2_model} 모델로 분석 중..."):
