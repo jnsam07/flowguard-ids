@@ -8,6 +8,7 @@ __pycache__/
 data/raw/
 data/interim/
 data/processed/*.csv
+!data/processed/test.csv
 
 # saved models - use Git LFS for large files
 # models/
