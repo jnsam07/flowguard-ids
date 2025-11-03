@@ -284,25 +284,23 @@ def main():
 
     Xte_np = Xte.to_numpy(dtype=np.float32, copy=True)
 
-    bin_models: list[tuple[str, np.ndarray, np.ndarray]] = []
+    bin_results: dict[str, tuple[np.ndarray, np.ndarray]] = {}
 
     # Load traditional baselines
     lr_variants = [
         (MODEL_DIR_BASE / "lr_bin.joblib", "Logistic Regression (Base)", "binary_report_LR.txt"),
-        (MODEL_DIR_PC / "lr_pc_bin.joblib", "Logistic Regression (PC)", "binary_report_LR_pc.txt"),
     ]
     for lr_path, lr_label, lr_report_name in lr_variants:
         if lr_path.exists():
             lr = load(lr_path)
             y_pred = lr.predict(Xte)
             y_score = lr.predict_proba(Xte)[:, 1]
-            bin_models.append((lr_label, y_pred, y_score))
+            bin_results[lr_label] = (y_pred, y_score)
             rep = classification_report(yte_bin, y_pred, target_names=["BENIGN", "ATTACK"], digits=4)
             (OUT_DIR / lr_report_name).write_text(rep)
 
     svm_variants = [
         (MODEL_DIR_BASE / "svm_bin.joblib", "Support Vector Machine (Base)", "binary_report_SVM.txt"),
-        (MODEL_DIR_PC / "svm_pc_bin.joblib", "Support Vector Machine (PC)", "binary_report_SVM_pc.txt"),
     ]
     for svm_path, svm_label, svm_report_name in svm_variants:
         if svm_path.exists():
@@ -312,7 +310,7 @@ def main():
             else:
                 y_score = svm.predict_proba(Xte)[:, 1]
             y_pred = svm.predict(Xte)
-            bin_models.append((svm_label, y_pred, y_score))
+            bin_results[svm_label] = (y_pred, y_score)
             rep = classification_report(yte_bin, y_pred, target_names=["BENIGN", "ATTACK"], digits=4)
             (OUT_DIR / svm_report_name).write_text(rep)
 
@@ -343,7 +341,7 @@ def main():
                 cnn_model = cnn_cls(**model_kwargs).to(device)
                 cnn_model.load_state_dict(state, strict=True)
                 preds, scores = torch_predict_bin(cnn_model, Xte_np, device, add_channel=needs_channel)
-                bin_models.append((cnn_label, preds, scores))
+                bin_results[cnn_label] = (preds, scores)
                 rep = classification_report(yte_bin, preds, target_names=["BENIGN", "ATTACK"], digits=4)
                 (OUT_DIR / cnn_report).write_text(rep)
 
@@ -364,9 +362,19 @@ def main():
                 mlp_model.load_state_dict(state, strict=True)
                 X_input = maybe_standardize(raw, Xte_np).astype(np.float32, copy=False) if apply_standardize else Xte_np
                 preds, scores = torch_predict_bin(mlp_model, X_input, device)
-                bin_models.append((mlp_label, preds, scores))
+                bin_results[mlp_label] = (preds, scores)
                 rep = classification_report(yte_bin, preds, target_names=["BENIGN", "ATTACK"], digits=4)
                 (OUT_DIR / mlp_report).write_text(rep)
+
+    desired_order = [
+        "MLP (PC)",
+        "MLP (Base)",
+        "CNN-1D (PC)",
+        "CNN-1D (Base)",
+        "Logistic Regression (Base)",
+        "Support Vector Machine (Base)",
+    ]
+    bin_models = [(label, *bin_results[label]) for label in desired_order if label in bin_results]
 
     # Binary plots
     if bin_models:
@@ -375,7 +383,7 @@ def main():
             axs = [axs]
         for ax, (name, y_pred, _) in zip(axs, bin_models):
             plot_confusion(ax, yte_bin, y_pred, name, labels=[0, 1])
-        fig.suptitle("Binary Confusion Matrices (PC models)")
+        fig.suptitle("Binary Confusion Matrices")
         fig.tight_layout()
         fig.savefig(OUT_DIR / "binary_confmats_pc.png", dpi=150, bbox_inches="tight")
         plt.close(fig)
@@ -396,7 +404,7 @@ def main():
         ax.barh(labels_b, scores_b, color=palette)
         ax.set_xlim([0, 1])
         ax.set_xlabel("Accuracy Score")
-        ax.set_title("Binary Model Comparison (PC)")
+        ax.set_title("Binary Model Comparison")
         for i, v in enumerate(scores_b):
             ax.text(v + 0.01, i, f"{v:.3f}", ha="left", va="center")
         fig.tight_layout()
@@ -410,7 +418,7 @@ def main():
         ax.barh(labels_f1, scores_f1, color=palette)
         ax.set_xlim([0, 1])
         ax.set_xlabel("F1-Score")
-        ax.set_title("Binary Model F1 Comparison (PC)")
+        ax.set_title("Binary Model F1 Comparison")
         for i, v in enumerate(scores_f1):
             ax.text(v + 0.01, i, f"{v:.3f}", ha="left", va="center")
         fig.tight_layout()
