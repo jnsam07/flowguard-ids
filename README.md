@@ -12,23 +12,23 @@
        [Raw Data]
             │
             ▼
-   1) 데이터 병합 (merge_raw.py)
+       1) 데이터 병합 (merge_raw.py)
          ↓
-   2) 전처리 & 라벨 정제 (clean_encode.py)
-         ↓
-   3) 차원 축소 PCA (reduce_pca.py)
-         ↓
-   4) Train / Test Split (split_build.py)
-         ↓
-┌───────────── Model Training ────────────----─┐
-│  ML (Multi-class)  |  DL (Binary Detection)  │
-│  ───────────────── | ─────────────────────── │
-│  RF / DT / KNN     | CNN-1D / MLP            │
-└──────────────────────────────────────────────┘
-            ▼
+       2) 전처리 & 라벨 정제 (clean_encode.py)
+                ↓
+       3) 차원 축소 PCA (reduce_pca.py)
+                ↓
+       4) Train / Test Split (split_build.py)
+                ↓
+       ┌───────────── Model Training ────────────----─┐
+       │  ML (Multi-class)  |  DL (Binary Detection)  │
+       │  ───────────────── | ─────────────────────── │
+       │  RF / DT / KNN     | CNN-1D / MLP            │
+       └──────────────────────────────────────────────┘
+                   ▼
        모델 평가 (plot_eval.py)
-            ▼
-    최종 모델 저장 및 UI 연동 (FINAL.py)
+                   ▼
+       최종 모델 저장 및 UI 연동 (FINAL.py)
 
 
 ## ✨ 주요 기능
